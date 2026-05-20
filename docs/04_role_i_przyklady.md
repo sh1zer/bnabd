@@ -2,8 +2,9 @@
 
 ## 1. Role systemowe
 
-System posiada dwie główne role:
+System posiada trzy główne role:
 - USER
+- HOST
 - ADMIN
 
 ---

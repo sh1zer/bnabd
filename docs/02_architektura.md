@@ -2,7 +2,7 @@
 
 ## 1. Architektura aplikacji
 
-System zostanie wykonany w architekturze trójwarstwowej:
+System zostanie wykonany w trzech warstwach:
 
 1. Warstwa prezentacji (Frontend)
 2. Warstwa logiki biznesowej (Backend)
@@ -28,8 +28,6 @@ Frontend zostanie wykonany w technologii Next.js.
 - React
 - TypeScript
 - TailwindCSS
-- Axios
-- Chart.js
 
 ---
 
@@ -70,52 +68,3 @@ System będzie korzystał z relacyjnej bazy danych PostgreSQL.
 # 5. Komunikacja frontend-backend
 
 Komunikacja odbywa się poprzez REST API wykorzystujące format JSON.
-
-Przykładowy request:
-
-POST /api/auth/login
-
-Przykładowa odpowiedź:
-
-{
-  "token": "jwt_token"
-}
-
----
-
-# 6. Autoryzacja i bezpieczeństwo
-
-W systemie zastosowano:
-- JWT Authentication,
-- szyfrowanie haseł BCrypt,
-- role użytkowników,
-- zabezpieczenie endpointów administracyjnych,
-- walidację danych wejściowych.
-
----
-
-# 7. Struktura backendu
-
-backend/
-│
-├── controller/
-├── service/
-├── repository/
-├── entity/
-├── dto/
-├── security/
-├── config/
-└── exception/
-
----
-
-# 8. Struktura frontendu
-
-frontend/
-│
-├── app/
-├── components/
-├── services/
-├── hooks/
-├── types/
-└── styles/

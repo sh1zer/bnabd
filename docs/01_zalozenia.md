@@ -34,7 +34,7 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 ## Funkcjonalności użytkownika niezalogowanego
 - przeglądanie schronisk,
 - wyszukiwanie schronisk,
-- filtrowanie po lokalizacji,
+- filtrowanie,
 - podgląd szczegółów schroniska,
 - rejestracja,
 - logowanie.
@@ -45,8 +45,7 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - tworzenie rezerwacji,
 - anulowanie rezerwacji,
 - podgląd własnych rezerwacji,
-- edycja profilu,
-- dodawanie opinii.
+- (maybe) dodawanie opinii.
 
 ---
 
@@ -55,7 +54,7 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - zarządzanie schroniskami,
 - zarządzanie pokojami,
 - przegląd wszystkich rezerwacji,
-- generowanie statystyk,
+- (maybe) generowanie statystyk,
 - reset i inicjalizacja bazy danych.
 
 ---
@@ -66,8 +65,6 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - Next.js
 - TypeScript
 - TailwindCSS
-- Axios
-- Chart.js
 
 ---
 
@@ -82,50 +79,3 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 
 ## Baza danych
 - PostgreSQL
-
----
-
-# 5. Role aplikacyjne
-
-## USER
-Standardowy użytkownik systemu.
-
-Uprawnienia:
-- rezerwacja miejsc,
-- przeglądanie schronisk,
-- zarządzanie własnymi rezerwacjami.
-
----
-
-## ADMIN
-Administrator systemu.
-
-Uprawnienia:
-- pełne zarządzanie aplikacją,
-- CRUD schronisk,
-- CRUD użytkowników,
-- zarządzanie rezerwacjami,
-- inicjalizacja danych.
-
----
-
-# 6. Wymagania funkcjonalne
-
-System powinien umożliwiać:
-- rejestrację i logowanie użytkowników,
-- filtrowanie schronisk,
-- sprawdzanie dostępności pokoi,
-- tworzenie i anulowanie rezerwacji,
-- zarządzanie danymi przez administratora,
-- generowanie statystyk.
-
----
-
-# 7. Wymagania niefunkcjonalne
-
-System powinien:
-- działać w przeglądarce internetowej,
-- posiadać responsywny interfejs,
-- zapewniać bezpieczeństwo danych,
-- obsługiwać wielu użytkowników,
-- działać stabilnie przy dużej liczbie rekordów.
