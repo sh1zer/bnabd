@@ -60,7 +60,8 @@ Tabela przechowuje rezerwacje użytkowników.
 - pokój,
 - datę rozpoczęcia i zakończenia pobytu,
 - status rezerwacji,
-- datę utworzenia.
+- datę utworzenia,
+- cenę (w momenciu stworzenia rezerwacji),
 
 ### Statusy:
 - PENDING,
@@ -95,4 +96,4 @@ W systemie zastosujemy:
 - role użytkowników,
 - zabezpieczenie endpointów backendowych.
 
-![diagram](obraz.png)
+![diagram](obraz-1.png)
