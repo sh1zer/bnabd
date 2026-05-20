@@ -14,7 +14,6 @@ System umożliwia:
 
 Projekt realizowany jest jako aplikacja webowa w architekturze klient-serwer.
 
----
 
 # 2. Cel projektu
 
@@ -27,7 +26,6 @@ Celem projektu jest stworzenie nowoczesnej aplikacji bazodanowej umożliwiające
 
 Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 
----
 
 # 3. Zakres funkcjonalny
 
@@ -39,7 +37,6 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - rejestracja,
 - logowanie.
 
----
 
 ## Funkcjonalności użytkownika zalogowanego
 - tworzenie rezerwacji,
@@ -47,7 +44,6 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - podgląd własnych rezerwacji,
 - (maybe) dodawanie opinii.
 
----
 
 ## Funkcjonalności administratora
 - zarządzanie użytkownikami,
@@ -57,7 +53,6 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - (maybe) generowanie statystyk,
 - reset i inicjalizacja bazy danych.
 
----
 
 # 4. Technologie wykorzystane w projekcie
 
@@ -66,7 +61,6 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - TypeScript
 - TailwindCSS
 
----
 
 ## Backend
 - Spring Boot
@@ -75,7 +69,6 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - Hibernate / JPA
 - Maven
 
----
 
 ## Baza danych
 - PostgreSQL
