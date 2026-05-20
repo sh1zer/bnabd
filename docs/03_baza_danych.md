@@ -94,3 +94,5 @@ W systemie zastosujemy:
 - autoryzację JWT,
 - role użytkowników,
 - zabezpieczenie endpointów backendowych.
+
+![diagram](obraz.png)
