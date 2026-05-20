@@ -11,7 +11,6 @@ Baza danych odpowiada za przechowywanie:
 - rezerwacji,
 - opinii.
 
----
 
 # Główne tabele
 
@@ -30,7 +29,6 @@ Tabela przechowuje dane użytkowników systemu.
 - HOST,
 - ADMIN.
 
----
 
 ## shelters
 Tabela przechowuje informacje o schroniskach.
@@ -43,7 +41,6 @@ Tabela przechowuje informacje o schroniskach.
 - dane kontaktowe,
 - zdjęcie.
 
----
 
 ## rooms
 Tabela przechowuje dane pokoi dostępnych w schroniskach.
@@ -54,7 +51,6 @@ Tabela przechowuje dane pokoi dostępnych w schroniskach.
 - liczbę miejsc,
 - cenę za noc.
 
----
 
 ## reservations
 Tabela przechowuje rezerwacje użytkowników.
@@ -71,7 +67,6 @@ Tabela przechowuje rezerwacje użytkowników.
 - CONFIRMED,
 - CANCELLED.
 
----
 
 ## reviews
 Tabela przechowuje opinie użytkowników.
@@ -83,7 +78,6 @@ Tabela przechowuje opinie użytkowników.
 - komentarz,
 - datę dodania opinii.
 
----
 
 # Relacje między tabelami
 
@@ -93,7 +87,6 @@ Tabela przechowuje opinie użytkowników.
 - jeden pokój może występować w wielu rezerwacjach,
 - jedno schronisko może posiadać wiele opinii.
 
----
 
 # Bezpieczeństwo danych
 

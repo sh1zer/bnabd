@@ -8,7 +8,6 @@ System zostanie wykonany w trzech warstwach:
 2. Warstwa logiki biznesowej (Backend)
 3. Warstwa danych (Baza danych)
 
----
 
 # 2. Frontend
 
@@ -21,7 +20,6 @@ Frontend zostanie wykonany w technologii Next.js.
 - obsługa sesji użytkownika,
 - wyświetlanie statystyk.
 
----
 
 ## Technologie frontendowe
 - Next.js
@@ -29,7 +27,6 @@ Frontend zostanie wykonany w technologii Next.js.
 - TypeScript
 - TailwindCSS
 
----
 
 # 3. Backend
 
@@ -42,7 +39,6 @@ Backend zostanie wykonany w Spring Boot jako REST API.
 - walidacja danych,
 - obsługa bezpieczeństwa.
 
----
 
 ## Technologie backendowe
 - Spring Boot
@@ -51,7 +47,6 @@ Backend zostanie wykonany w Spring Boot jako REST API.
 - Hibernate / JPA
 - Maven
 
----
 
 # 4. Baza danych
 
@@ -63,7 +58,6 @@ System będzie korzystał z relacyjnej bazy danych PostgreSQL.
 - przechowywanie danych schronisk,
 - obsługa relacji między encjami.
 
----
 
 # 5. Komunikacja frontend-backend
 
