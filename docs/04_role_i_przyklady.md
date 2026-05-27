@@ -65,7 +65,88 @@ Administrator może:
 
 # 6. Diagramy UML
 
-Do projektu zostaną dołączone:
-- diagram przypadków użycia,
-- diagram sekwencji,
-- diagram encji ERD.
+## 6.1. Diagram przypadków użycia — USER
+
+```mermaid
+graph LR
+    U((USER))
+    U --> UC1[Rejestracja]
+    U --> UC2[Logowanie]
+    U --> UC3[Przeglądanie schronisk]
+    U --> UC4[Wyszukiwanie i filtrowanie]
+    U --> UC5[Tworzenie rezerwacji]
+    U --> UC6[Anulowanie rezerwacji]
+    U --> UC7[Dodawanie opinii]
+    U --> UC8[Zarządzanie profilem]
+```
+
+
+## 6.2. Diagram przypadków użycia — HOST
+
+```mermaid
+graph LR
+    H((HOST))
+    H --> HC1[Logowanie]
+    H --> HC2[Dodawanie schroniska]
+    H --> HC3[Edycja własnych schronisk]
+    H --> HC4[Zarządzanie pokojami]
+    H --> HC5[Podgląd rezerwacji w swoich schroniskach]
+```
+
+
+## 6.3. Diagram przypadków użycia — ADMIN
+
+```mermaid
+graph LR
+    A((ADMIN))
+    A --> AC1[Logowanie]
+    A --> AC2[Zarządzanie użytkownikami]
+    A --> AC3[Zarządzanie schroniskami]
+    A --> AC4[Zarządzanie pokojami]
+    A --> AC5[Przegląd wszystkich rezerwacji]
+    A --> AC6[Statystyki graficzne]
+    A --> AC7[Reset bazy danych]
+```
+
+
+## 6.4. Diagram sekwencji — logowanie
+
+```mermaid
+sequenceDiagram
+    actor U as Użytkownik
+    participant F as Frontend
+    participant B as Backend
+    participant DB as PostgreSQL
+    U->>F: login + hasło
+    F->>B: POST /api/auth/login
+    B->>DB: SELECT user WHERE login=?
+    DB-->>B: rekord (password_hash)
+    B->>B: BCrypt.matches(raw, hash)
+    B-->>F: token JWT
+    F-->>U: zalogowano
+```
+
+
+## 6.5. Diagram sekwencji — tworzenie rezerwacji
+
+```mermaid
+sequenceDiagram
+    actor U as USER
+    participant F as Frontend
+    participant B as Backend
+    participant DB as PostgreSQL
+    U->>F: wybór pokoju i terminu
+    F->>B: POST /api/reservations (JWT)
+    B->>B: walidacja JWT i danych
+    B->>DB: sprawdzenie dostępności terminu
+    DB-->>B: brak kolizji
+    B->>DB: INSERT reservation
+    DB-->>B: id rezerwacji
+    B-->>F: 201 Created
+    F-->>U: potwierdzenie
+```
+
+
+## 6.6. Diagram encji (ERD)
+
+Diagram encji wraz z relacjami znajduje się w pliku `docs/obraz-1.png`.

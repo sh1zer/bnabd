@@ -92,8 +92,19 @@ Tabela przechowuje opinie użytkowników.
 # Bezpieczeństwo danych
 
 W systemie zastosujemy:
+- hashowanie haseł BCrypt (kolumna `users.password_hash`),
 - autoryzację JWT,
 - role użytkowników,
 - zabezpieczenie endpointów backendowych.
 
 ![diagram](obraz-1.png)
+
+
+# Skrypt inicjalizacyjny bazy
+
+Do projektu zostanie przygotowany skrypt SQL zawierający:
+- `DROP` istniejących tabel,
+- `CREATE` całej struktury wraz z ograniczeniami i kluczami obcymi,
+- `INSERT` z danymi przykładowymi (użytkownicy testowi z hasłami zahashowanymi BCrypt, schroniska, pokoje, przykładowe rezerwacje i opinie).
+
+Administrator z panelu aplikacji będzie mógł uruchomić akcję resetu bazy, która wykona ten skrypt — skasuje starą strukturę i utworzy nową z danymi przykładowymi.

@@ -42,7 +42,7 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - tworzenie rezerwacji,
 - anulowanie rezerwacji,
 - podgląd własnych rezerwacji,
-- (maybe) dodawanie opinii.
+- dodawanie opinii.
 
 
 ## Funkcjonalności administratora
@@ -50,8 +50,8 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - zarządzanie schroniskami,
 - zarządzanie pokojami,
 - przegląd wszystkich rezerwacji,
-- (maybe) generowanie statystyk,
-- reset i inicjalizacja bazy danych.
+- generowanie statystyk graficznych (wykresy czasowe — rezerwacje/miesiąc, obłożenie/rok),
+- reset i inicjalizacja bazy danych (drop + create + dane przykładowe).
 
 
 # 4. Technologie wykorzystane w projekcie
