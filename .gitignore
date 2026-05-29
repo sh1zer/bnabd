@@ -1,0 +1,21 @@
+# IDE
+.idea/
+*.iml
+
+# Java / Maven (backend)
+target/
+
+# Node (frontend has its own .gitignore too)
+node_modules/
+.next/
+
+# Local env / secrets
+.env
+.env*.local
+
+# Logs
+*.log
+
+.claude/*
+CLAUDE.md
+AGENTS.md
