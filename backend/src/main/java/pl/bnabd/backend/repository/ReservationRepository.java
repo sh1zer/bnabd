@@ -13,6 +13,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     List<Reservation> findByRoom_Shelter_Owner_IdOrderByCreatedAtDesc(Long ownerId);
 
+    void deleteByRoomId(Long roomId);
+
     long countByStatus(ReservationStatus status);
 
     @Query("""

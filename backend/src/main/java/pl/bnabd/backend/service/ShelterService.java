@@ -4,10 +4,16 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.bnabd.backend.dto.RoomDto;
+import pl.bnabd.backend.dto.RoomRequest;
 import pl.bnabd.backend.dto.ShelterDto;
+import pl.bnabd.backend.dto.ShelterRequest;
+import pl.bnabd.backend.exception.ForbiddenException;
 import pl.bnabd.backend.exception.NotFoundException;
+import pl.bnabd.backend.model.AppUser;
 import pl.bnabd.backend.model.Room;
 import pl.bnabd.backend.model.Shelter;
+import pl.bnabd.backend.model.UserRole;
+import pl.bnabd.backend.repository.ReservationRepository;
 import pl.bnabd.backend.repository.RoomRepository;
 import pl.bnabd.backend.repository.ShelterRepository;
 
@@ -17,10 +23,15 @@ public class ShelterService {
 
     private final ShelterRepository shelterRepository;
     private final RoomRepository roomRepository;
+    private final ReservationRepository reservationRepository;
 
-    public ShelterService(ShelterRepository shelterRepository, RoomRepository roomRepository) {
+    public ShelterService(
+            ShelterRepository shelterRepository,
+            RoomRepository roomRepository,
+            ReservationRepository reservationRepository) {
         this.shelterRepository = shelterRepository;
         this.roomRepository = roomRepository;
+        this.reservationRepository = reservationRepository;
     }
 
     public List<ShelterDto> findAll(String location) {
@@ -48,6 +59,82 @@ public class ShelterService {
     public List<RoomDto> findRooms(long shelterId) {
         findEntityById(shelterId);
         return roomRepository.findByShelterId(shelterId).stream().map(this::toDto).toList();
+    }
+
+    @Transactional
+    public ShelterDto createShelter(ShelterRequest request, AppUser currentUser) {
+        Shelter shelter = new Shelter();
+        shelter.setOwner(currentUser);
+        apply(shelter, request);
+        return toDto(shelterRepository.save(shelter));
+    }
+
+    @Transactional
+    public ShelterDto updateShelter(long id, ShelterRequest request, AppUser currentUser) {
+        Shelter shelter = findEntityById(id);
+        assertCanManage(shelter, currentUser);
+        apply(shelter, request);
+        return toDto(shelter);
+    }
+
+    @Transactional
+    public RoomDto createRoom(long shelterId, RoomRequest request, AppUser currentUser) {
+        Shelter shelter = findEntityById(shelterId);
+        assertCanManage(shelter, currentUser);
+        Room room = new Room();
+        room.setShelter(shelter);
+        apply(room, request);
+        return toDto(roomRepository.save(room));
+    }
+
+    @Transactional
+    public RoomDto updateRoom(long shelterId, long roomId, RoomRequest request, AppUser currentUser) {
+        Room room = findRoomOfShelter(shelterId, roomId);
+        assertCanManage(room.getShelter(), currentUser);
+        apply(room, request);
+        return toDto(room);
+    }
+
+    @Transactional
+    public void deleteRoom(long shelterId, long roomId, AppUser currentUser) {
+        Room room = findRoomOfShelter(shelterId, roomId);
+        assertCanManage(room.getShelter(), currentUser);
+        // Bookings reference the room, so clear them before removing it.
+        reservationRepository.deleteByRoomId(room.getId());
+        roomRepository.delete(room);
+    }
+
+    private Room findRoomOfShelter(long shelterId, long roomId) {
+        Room room = findRoomById(roomId);
+        if (!room.getShelter().getId().equals(shelterId)) {
+            throw new NotFoundException("Pokoj o id " + roomId + " nie nalezy do schroniska " + shelterId + ".");
+        }
+        return room;
+    }
+
+    private void assertCanManage(Shelter shelter, AppUser currentUser) {
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return;
+        }
+        AppUser owner = shelter.getOwner();
+        if (owner == null || !owner.getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("Nie zarzadzasz tym schroniskiem.");
+        }
+    }
+
+    private void apply(Shelter shelter, ShelterRequest request) {
+        shelter.setName(request.name());
+        shelter.setDescription(request.description());
+        shelter.setLocation(request.location());
+        shelter.setPhone(request.phone());
+        shelter.setEmail(request.email());
+        shelter.setImageUrl(request.imageUrl());
+    }
+
+    private void apply(Room room, RoomRequest request) {
+        room.setName(request.name());
+        room.setCapacity(request.capacity());
+        room.setPricePerNight(request.pricePerNight());
     }
 
     private ShelterDto toDto(Shelter shelter) {
