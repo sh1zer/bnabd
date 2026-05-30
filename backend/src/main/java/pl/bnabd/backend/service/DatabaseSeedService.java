@@ -51,11 +51,14 @@ public class DatabaseSeedService implements CommandLineRunner {
 
     @Transactional
     public void reset() {
-        reviewRepository.deleteAll();
-        reservationRepository.deleteAll();
-        roomRepository.deleteAll();
-        shelterRepository.deleteAll();
-        userRepository.deleteAll();
+        // Bulk-delete in FK-safe order. deleteAllInBatch() issues the DELETEs immediately,
+        // so Hibernate cannot reorder seed()'s fresh INSERTs ahead of them within this
+        // transaction (which otherwise caused a duplicate-key violation on users.email/login).
+        reviewRepository.deleteAllInBatch();
+        reservationRepository.deleteAllInBatch();
+        roomRepository.deleteAllInBatch();
+        shelterRepository.deleteAllInBatch();
+        userRepository.deleteAllInBatch();
         seed();
     }
 
