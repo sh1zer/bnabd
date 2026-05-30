@@ -14,8 +14,10 @@ import pl.bnabd.backend.model.Room;
 import pl.bnabd.backend.model.Shelter;
 import pl.bnabd.backend.model.UserRole;
 import pl.bnabd.backend.repository.ReservationRepository;
+import pl.bnabd.backend.repository.ReviewRepository;
 import pl.bnabd.backend.repository.RoomRepository;
 import pl.bnabd.backend.repository.ShelterRepository;
+import pl.bnabd.backend.repository.UserRepository;
 
 @Service
 @Transactional(readOnly = true)
@@ -24,14 +26,20 @@ public class ShelterService {
     private final ShelterRepository shelterRepository;
     private final RoomRepository roomRepository;
     private final ReservationRepository reservationRepository;
+    private final ReviewRepository reviewRepository;
+    private final UserRepository userRepository;
 
     public ShelterService(
             ShelterRepository shelterRepository,
             RoomRepository roomRepository,
-            ReservationRepository reservationRepository) {
+            ReservationRepository reservationRepository,
+            ReviewRepository reviewRepository,
+            UserRepository userRepository) {
         this.shelterRepository = shelterRepository;
         this.roomRepository = roomRepository;
         this.reservationRepository = reservationRepository;
+        this.reviewRepository = reviewRepository;
+        this.userRepository = userRepository;
     }
 
     public List<ShelterDto> findAll(String location) {
@@ -102,6 +110,28 @@ public class ShelterService {
         // Bookings reference the room, so clear them before removing it.
         reservationRepository.deleteByRoomId(room.getId());
         roomRepository.delete(room);
+    }
+
+    @Transactional
+    public void deleteShelter(long id) {
+        Shelter shelter = findEntityById(id);
+        // FK-safe teardown: bookings -> reviews -> rooms -> shelter.
+        reservationRepository.deleteByRoom_Shelter_Id(id);
+        reviewRepository.deleteByShelterId(id);
+        roomRepository.deleteByShelterId(id);
+        shelterRepository.delete(shelter);
+    }
+
+    @Transactional
+    public ShelterDto reassignOwner(long id, long ownerId) {
+        Shelter shelter = findEntityById(id);
+        AppUser owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new NotFoundException("Nie znaleziono uzytkownika o id " + ownerId + "."));
+        if (owner.getRole() == UserRole.USER) {
+            throw new IllegalArgumentException("Wlascicielem schroniska moze byc tylko HOST lub ADMIN.");
+        }
+        shelter.setOwner(owner);
+        return toDto(shelter);
     }
 
     private Room findRoomOfShelter(long shelterId, long roomId) {

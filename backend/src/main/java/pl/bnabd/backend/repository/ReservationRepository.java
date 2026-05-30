@@ -15,6 +15,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     void deleteByRoomId(Long roomId);
 
+    void deleteByUserId(Long userId);
+
+    void deleteByRoom_Shelter_Id(Long shelterId);
+
     long countByStatus(ReservationStatus status);
 
     @Query("""

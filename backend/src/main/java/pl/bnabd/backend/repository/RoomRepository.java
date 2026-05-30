@@ -6,4 +6,6 @@ import pl.bnabd.backend.model.Room;
 
 public interface RoomRepository extends JpaRepository<Room, Long> {
     List<Room> findByShelterId(Long shelterId);
+
+    void deleteByShelterId(Long shelterId);
 }

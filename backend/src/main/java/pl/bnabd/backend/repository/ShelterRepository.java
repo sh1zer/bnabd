@@ -6,4 +6,6 @@ import pl.bnabd.backend.model.Shelter;
 
 public interface ShelterRepository extends JpaRepository<Shelter, Long> {
     List<Shelter> findByLocationContainingIgnoreCase(String location);
+
+    List<Shelter> findByOwnerId(Long ownerId);
 }
