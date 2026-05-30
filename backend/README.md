@@ -26,6 +26,17 @@ mvn spring-boot:run
 
 Backend startuje na `http://localhost:8080`.
 
+## Testowanie API (Swagger)
+
+Interaktywna dokumentacja i testowanie endpointow:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+Aby wywolywac zabezpieczone endpointy: zaloguj sie przez `POST /api/auth/login`,
+skopiuj `token` z odpowiedzi, kliknij **Authorize** i wklej token.
+
 ## Konta testowe
 
 - `admin / admin123`
