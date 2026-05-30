@@ -18,6 +18,12 @@ public class ApiExceptionHandler {
         return error("NOT_FOUND", exception.getMessage());
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    Map<String, Object> forbidden(ForbiddenException exception) {
+        return error("FORBIDDEN", exception.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     Map<String, Object> badRequest(IllegalArgumentException exception) {

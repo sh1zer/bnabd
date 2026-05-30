@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import pl.bnabd.backend.dto.CreateReviewRequest;
 import pl.bnabd.backend.dto.ReviewDto;
+import pl.bnabd.backend.service.CurrentUserProvider;
 import pl.bnabd.backend.service.ReviewService;
 
 @RestController
@@ -19,9 +20,11 @@ import pl.bnabd.backend.service.ReviewService;
 public class ReviewController {
 
     private final ReviewService reviewService;
+    private final CurrentUserProvider currentUserProvider;
 
-    public ReviewController(ReviewService reviewService) {
+    public ReviewController(ReviewService reviewService, CurrentUserProvider currentUserProvider) {
         this.reviewService = reviewService;
+        this.currentUserProvider = currentUserProvider;
     }
 
     @GetMapping("/shelter/{shelterId}")
@@ -32,6 +35,6 @@ public class ReviewController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     ReviewDto createReview(@Valid @RequestBody CreateReviewRequest request) {
-        return reviewService.create(request);
+        return reviewService.create(request, currentUserProvider.require());
     }
 }

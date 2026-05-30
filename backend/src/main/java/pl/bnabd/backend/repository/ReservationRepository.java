@@ -11,6 +11,8 @@ import pl.bnabd.backend.model.ReservationStatus;
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
     List<Reservation> findByUserIdOrderByCreatedAtDesc(Long userId);
 
+    List<Reservation> findByRoom_Shelter_Owner_IdOrderByCreatedAtDesc(Long ownerId);
+
     long countByStatus(ReservationStatus status);
 
     @Query("""
