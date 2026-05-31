@@ -113,8 +113,9 @@ public class ShelterService {
     }
 
     @Transactional
-    public void deleteShelter(long id) {
+    public void deleteShelter(long id, AppUser currentUser) {
         Shelter shelter = findEntityById(id);
+        assertCanManage(shelter, currentUser);
         // FK-safe teardown: bookings -> reviews -> rooms -> shelter.
         reservationRepository.deleteByRoom_Shelter_Id(id);
         reviewRepository.deleteByShelterId(id);

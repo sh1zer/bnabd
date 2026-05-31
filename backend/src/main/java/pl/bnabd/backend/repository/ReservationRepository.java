@@ -33,4 +33,17 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("roomId") Long roomId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    @Query("""
+            select count(r) > 0
+            from Reservation r
+            where r.user.id = :userId
+              and r.room.shelter.id = :shelterId
+              and r.status <> pl.bnabd.backend.model.ReservationStatus.CANCELLED
+              and r.endDate < :today
+            """)
+    boolean existsCompletedStay(
+            @Param("userId") Long userId,
+            @Param("shelterId") Long shelterId,
+            @Param("today") LocalDate today);
 }

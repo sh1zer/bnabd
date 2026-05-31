@@ -59,6 +59,12 @@ public class ShelterController {
         return shelterService.updateShelter(id, request, currentUserProvider.require());
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteShelter(@PathVariable long id) {
+        shelterService.deleteShelter(id, currentUserProvider.require());
+    }
+
     @PostMapping("/{id}/rooms")
     @ResponseStatus(HttpStatus.CREATED)
     RoomDto createRoom(@PathVariable long id, @Valid @RequestBody RoomRequest request) {

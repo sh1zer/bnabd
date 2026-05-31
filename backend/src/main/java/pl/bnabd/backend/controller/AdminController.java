@@ -67,7 +67,7 @@ public class AdminController {
     @DeleteMapping("/shelters/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void deleteShelter(@PathVariable long id) {
-        shelterService.deleteShelter(id);
+        shelterService.deleteShelter(id, currentUserProvider.require());
     }
 
     @PatchMapping("/shelters/{id}/owner")
