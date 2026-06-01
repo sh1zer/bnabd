@@ -1,420 +1,350 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Shelter = {
-  id: number;
-  name: string;
-  description: string;
-  location: string;
-  phone: string;
-  email: string;
-  imageUrl: string;
-  rating: number;
-  beds: number;
-  price: string;
+  id: number; ownerId: number; name: string; description: string;
+  location: string; phone: string; email: string; imageUrl: string;
+  rating: number; beds: number; price: string;
 };
+type Session = { token: string; userId: number; login: string; email: string; role: string };
 
-type Room = {
-  id: number;
-  shelterId: number;
-  shelterName: string;
-  name: string;
-  capacity: number;
-  pricePerNight: number;
-};
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
-type Reservation = {
-  id: number;
-  userId: number;
-  userLogin: string;
-  roomId: number;
-  roomName: string;
-  shelterId: number;
-  shelterName: string;
-  startDate: string;
-  endDate: string;
-  guestCount: number;
-  totalPrice: number;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
-};
+function saveSession(s: Session) { localStorage.setItem("bnabd_session", JSON.stringify(s)); }
+function readSession(): Session | null {
+  try { return JSON.parse(localStorage.getItem("bnabd_session") ?? "null"); } catch { return null; }
+}
 
-type Session = {
-  token: string;
-  userId: number;
-  login: string;
-  email: string;
-  role: "USER" | "HOST" | "ADMIN";
-};
-
-type Stats = {
-  users: number;
-  shelters: number;
-  rooms: number;
-  reservations: number;
-  pendingReservations: number;
-  revenue: number;
-  monthlyReservations: { month: number; count: number }[];
-};
-
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-
-const demoCredentials = [
-  ["admin", "admin123", "ADMIN"],
-  ["host", "host123", "HOST"],
-  ["user", "user123", "USER"]
-];
-
-export default function Home() {
-  const [shelters, setShelters] = useState<Shelter[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [selectedShelterId, setSelectedShelterId] = useState<number | null>(null);
-  const [message, setMessage] = useState("Backend: laczenie...");
-  const [filter, setFilter] = useState("");
-  const [login, setLogin] = useState("admin");
-  const [password, setPassword] = useState("admin123");
-  const [reservationForm, setReservationForm] = useState({
-    roomId: "",
-    startDate: "",
-    endDate: "",
-    guestCount: "2"
+async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    ...opts, headers: { "Content-Type": "application/json", ...opts?.headers },
   });
+  if (!res.ok) { const e = await res.json().catch(() => ({ message: "Błąd" })); throw new Error(e.message); }
+  return res.json();
+}
 
-  const selectedShelter = useMemo(
-    () => shelters.find((shelter) => shelter.id === selectedShelterId) ?? shelters[0],
-    [selectedShelterId, shelters]
-  );
+export default function LandingPage() {
+  const router = useRouter();
+  const [shelters, setShelters] = useState<Shelter[]>([]);
+  const [session, setSession] = useState<Session | null>(null);
+  const [filter, setFilter] = useState("");
+  const [modal, setModal] = useState<"login" | "register" | null>(null);
+  const [authTab, setAuthTab] = useState<"login" | "register">("login");
+  const [error, setError] = useState("");
+  const [scrolled, setScrolled] = useState(false);
+  const sheltersRef = useRef<HTMLElement>(null);
+
+  const [loginLogin, setLoginLogin] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [regLogin, setRegLogin] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
 
   useEffect(() => {
-    loadShelters();
-    loadReservations();
-    loadStats();
+    setSession(readSession());
+    apiFetch<Shelter[]>("/api/shelters").then(setShelters).catch(() => {});
+    const fn = () => setScrolled(window.scrollY > 30);
+    window.addEventListener("scroll", fn);
+    return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  useEffect(() => {
-    if (selectedShelter?.id) {
-      loadRooms(selectedShelter.id);
-    }
-  }, [selectedShelter?.id]);
-
-  async function api<T>(path: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(`${apiBaseUrl}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(session?.token ? { Authorization: `Bearer ${session.token}` } : {}),
-        ...options?.headers
-      }
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: "Blad API" }));
-      throw new Error(error.message ?? "Blad API");
-    }
-    return response.json();
-  }
-
-  async function loadShelters(location = "") {
+  async function handleLogin(e: FormEvent) {
+    e.preventDefault(); setError("");
     try {
-      const data = await api<Shelter[]>(`/api/shelters${location ? `?location=${encodeURIComponent(location)}` : ""}`);
-      setShelters(data);
-      setSelectedShelterId((current) => current ?? data[0]?.id ?? null);
-      setMessage("Backend: polaczono");
-    } catch {
-      setMessage("Backend niedostepny. Uruchom Spring Boot na porcie 8080.");
-    }
-  }
-
-  async function loadRooms(shelterId: number) {
-    setRooms(await api<Room[]>(`/api/shelters/${shelterId}/rooms`));
-  }
-
-  async function loadReservations(userId = session?.role === "USER" ? session.userId : undefined, token = session?.token) {
-    try {
-      const data = await api<Reservation[]>(`/api/reservations${userId ? `?userId=${userId}` : ""}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      const data = await apiFetch<Session>("/api/auth/login", {
+        method: "POST", body: JSON.stringify({ login: loginLogin, password: loginPassword }),
       });
-      setReservations(data);
-    } catch {
-      setReservations([]);
-    }
+      saveSession(data); router.push("/dashboard");
+    } catch (err) { setError(err instanceof Error ? err.message : "Błąd logowania."); }
   }
 
-  async function loadStats(token = session?.token) {
+  async function handleRegister(e: FormEvent) {
+    e.preventDefault(); setError("");
     try {
-      setStats(await api<Stats>("/api/admin/stats", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      }));
-    } catch {
-      setStats(null);
-    }
-  }
-
-  async function handleLogin(event: FormEvent) {
-    event.preventDefault();
-    try {
-      const data = await api<Session>("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ login, password })
+      await apiFetch("/api/auth/register", {
+        method: "POST", body: JSON.stringify({ login: regLogin, email: regEmail, password: regPassword }),
       });
-      setSession(data);
-      setMessage(`Zalogowano jako ${data.login} (${data.role})`);
-      await loadReservations(data.role === "USER" ? data.userId : undefined, data.token);
-      await loadStats(data.token);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Nie udalo sie zalogowac.");
-    }
+      setAuthTab("login"); setLoginLogin(regLogin);
+      setError("✓ Konto utworzone — możesz się zalogować.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Błąd rejestracji."); }
   }
 
-  async function handleSearch(event: FormEvent) {
-    event.preventDefault();
-    await loadShelters(filter);
+  async function handleSearch(e: FormEvent) {
+    e.preventDefault();
+    const data = await apiFetch<Shelter[]>(`/api/shelters${filter ? `?location=${encodeURIComponent(filter)}` : ""}`);
+    setShelters(data);
+    sheltersRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
-  async function createReservation(event: FormEvent) {
-    event.preventDefault();
-    if (!session) {
-      setMessage("Zaloguj sie, aby utworzyc rezerwacje.");
-      return;
-    }
-    try {
-      await api<Reservation>("/api/reservations", {
-        method: "POST",
-        body: JSON.stringify({
-          userId: session.userId,
-          roomId: Number(reservationForm.roomId || rooms[0]?.id),
-          startDate: reservationForm.startDate,
-          endDate: reservationForm.endDate,
-          guestCount: Number(reservationForm.guestCount)
-        })
-      });
-      setMessage("Rezerwacja zapisana ze statusem PENDING.");
-      await loadReservations(session.role === "USER" ? session.userId : undefined);
-      await loadStats();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Nie udalo sie zapisac rezerwacji.");
-    }
+  function openModal(tab: "login" | "register") {
+    setError(""); setAuthTab(tab); setModal(tab);
   }
-
-  async function updateReservation(id: number, action: "confirm" | "cancel") {
-    await api<Reservation>(`/api/reservations/${id}/${action}`, { method: "PATCH" });
-    await loadReservations(session?.role === "USER" ? session.userId : undefined);
-    await loadStats();
-  }
-
-  async function resetDatabase() {
-    await api("/api/admin/db/reset", { method: "POST" });
-    setMessage("Baza zresetowana i wypelniona danymi testowymi.");
-    await loadShelters();
-    await loadReservations();
-    await loadStats();
-  }
-
-  const maxMonth = Math.max(1, ...(stats?.monthlyReservations.map((item) => item.count) ?? [1]));
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-teal-700">SchroniskoHub</p>
-            <h1 className="text-xl font-black sm:text-2xl">Panel rezerwacji schronisk</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-2 font-semibold text-slate-700">{message}</span>
-            {session && <span className="rounded-full bg-slate-950 px-3 py-2 font-bold text-white">{session.login} / {session.role}</span>}
+    <div className="min-h-screen bg-white text-zinc-900">
+
+      {/* ── NAVBAR ── */}
+      <nav className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled ? "border-b border-zinc-200 bg-white/95 backdrop-blur" : "bg-transparent"}`}>
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <button className="flex items-center gap-2.5" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+            <div className="h-7 w-7 rounded bg-zinc-900 flex items-center justify-center">
+              <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l7 7 7-7M5 14l7 7 7-7" />
+              </svg>
+            </div>
+            <span className={`text-sm font-bold tracking-tight ${scrolled ? "text-zinc-900" : "text-white"}`}>
+              SchroniskoHub
+            </span>
+          </button>
+
+          <div className="flex items-center gap-1">
+            <button
+              className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-md ${scrolled ? "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50" : "text-white/80 hover:text-white"}`}
+              onClick={() => sheltersRef.current?.scrollIntoView({ behavior: "smooth" })}
+            >Schroniska</button>
+
+            {session ? (
+              <button
+                className="ml-2 rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-zinc-700 transition-colors"
+                onClick={() => router.push("/dashboard")}
+              >Panel →</button>
+            ) : (
+              <>
+                <button
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-md ${scrolled ? "text-zinc-600 hover:text-zinc-900" : "text-white/80 hover:text-white"}`}
+                  onClick={() => openModal("login")}
+                >Zaloguj</button>
+                <button
+                  className="ml-1 rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-zinc-700 transition-colors"
+                  onClick={() => openModal("register")}
+                >Zarejestruj się</button>
+              </>
+            )}
           </div>
         </div>
-      </header>
+      </nav>
 
-      <div className="mx-auto grid max-w-7xl gap-5 px-5 py-6 lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-5">
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Logowanie</h2>
-            <form className="mt-4 space-y-3" onSubmit={handleLogin}>
-              <input className="field" value={login} onChange={(event) => setLogin(event.target.value)} placeholder="login" />
-              <input className="field" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="haslo" type="password" />
-              <button className="primary-btn w-full" type="submit">Zaloguj</button>
+      {/* ── HERO ── */}
+      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 text-center bg-zinc-950">
+
+        {/* Wallpaper */}
+        <div className="pointer-events-none absolute inset-0">
+          <img
+            src="/wallpaper.png"
+            alt=""
+            className="h-full w-full object-cover object-center"
+          />
+          {/* Dark overlay so text stays readable */}
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.55) 100%)" }} />
+        </div>
+
+        <div className="relative z-10 max-w-2xl">
+          <p className="mb-5 text-xs font-semibold tracking-[0.25em] uppercase text-white/50 drop-shadow">
+            Schroniska turystyczne · Polska
+          </p>
+          <h1 className="mb-6 text-5xl font-black leading-[1.05] tracking-tight text-white drop-shadow-xl sm:text-6xl lg:text-7xl">
+            Rezerwuj noclegi<br />
+            <span className="text-amber-300">w górach</span>
+          </h1>
+          <p className="mb-10 text-base leading-relaxed max-w-lg mx-auto text-white/70 drop-shadow">
+            Przeglądaj schroniska, sprawdzaj dostępność i rezerwuj online — szybko i bez pośredników.
+          </p>
+
+          <form className="mx-auto flex max-w-md gap-2" onSubmit={handleSearch}>
+            <input
+              className="h-12 flex-1 rounded-lg px-4 text-sm text-white outline-none transition backdrop-blur placeholder:text-white/40"
+              style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)" }}
+              onFocus={(e) => e.target.style.border = "1px solid rgba(255,255,255,0.5)"}
+              onBlur={(e) => e.target.style.border = "1px solid rgba(255,255,255,0.2)"}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Tatry, Beskidy, Karkonosze..."
+            />
+            <button
+              className="h-12 rounded-lg px-6 text-sm font-semibold text-zinc-900 transition hover:bg-amber-200 bg-amber-300"
+              type="submit"
+            >Szukaj</button>
+          </form>
+
+          <div className="mt-10 flex justify-center gap-6 text-xs text-white/40">
+            <span>{shelters.length} schronisk</span>
+            <span>·</span>
+            <span>Rezerwacja online</span>
+            <span>·</span>
+            <span>Bez prowizji</span>
+          </div>
+        </div>
+
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce text-white/30">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </section>
+
+      {/* ── HOW IT WORKS ── */}
+      <section className="border-b border-zinc-100 bg-zinc-50 px-6 py-20">
+        <div className="mx-auto max-w-4xl">
+          <p className="mb-12 text-center text-xs font-semibold uppercase tracking-widest text-zinc-400">Jak to działa</p>
+          <div className="grid gap-px bg-zinc-200 sm:grid-cols-3 rounded-xl overflow-hidden">
+            {[
+              { n: "01", title: "Wyszukaj", desc: "Wpisz lokalizację i przeglądaj dostępne schroniska." },
+              { n: "02", title: "Zarezerwuj", desc: "Wybierz termin, pokój i opcję wyżywienia." },
+              { n: "03", title: "Jedź", desc: "Otrzymaj potwierdzenie i wyrusz w góry." },
+            ].map(({ n, title, desc }) => (
+              <div key={n} className="bg-white p-8">
+                <p className="mb-4 text-xs font-bold text-zinc-300">{n}</p>
+                <h3 className="mb-2 text-base font-bold">{title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── SHELTERS ── */}
+      <section ref={sheltersRef} className="px-6 py-20" id="schroniska">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Schroniska</h2>
+              <p className="mt-1 text-sm text-zinc-500">{shelters.length} obiektów w systemie</p>
+            </div>
+            <form className="flex gap-2" onSubmit={handleSearch}>
+              <input
+                className="h-9 w-52 rounded-md border border-zinc-200 bg-white px-3 text-sm outline-none transition placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-900/5"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Filtruj lokalizację..."
+              />
+              <button className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition" type="submit">
+                Filtruj
+              </button>
             </form>
-            <div className="mt-4 grid gap-2">
-              {demoCredentials.map(([userLogin, userPassword, role]) => (
-                <button
-                  className="rounded-md border border-slate-200 px-3 py-2 text-left text-sm font-semibold transition hover:border-teal-600 hover:bg-teal-50"
-                  key={userLogin}
-                  onClick={() => {
-                    setLogin(userLogin);
-                    setPassword(userPassword);
-                  }}
-                >
-                  {role}: {userLogin} / {userPassword}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Szukaj</h2>
-            <form className="mt-4 space-y-3" onSubmit={handleSearch}>
-              <input className="field" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Tatry, Beskid, Karkonosze" />
-              <button className="secondary-btn w-full" type="submit">Filtruj schroniska</button>
-            </form>
-          </section>
-
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">Statystyki</h2>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <Metric label="Uzytkownicy" value={stats?.users ?? 0} />
-              <Metric label="Schroniska" value={stats?.shelters ?? 0} />
-              <Metric label="Pokoje" value={stats?.rooms ?? 0} />
-              <Metric label="Rezerwacje" value={stats?.reservations ?? 0} />
-            </div>
-            <div className="mt-4 h-28 rounded-md bg-slate-100 p-3">
-              <div className="flex h-full items-end gap-1">
-                {(stats?.monthlyReservations ?? []).map((item) => (
-                  <div className="flex flex-1 flex-col items-center gap-1" key={item.month}>
-                    <div className="w-full rounded-t bg-teal-600" style={{ height: `${(item.count / maxMonth) * 100}%` }} />
-                    <span className="text-[10px] font-bold text-slate-400">{item.month}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <button className="danger-btn mt-4 w-full" onClick={resetDatabase} type="button">Reset bazy</button>
-          </section>
-        </aside>
-
-        <section className="space-y-5">
-          <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-black">Katalog schronisk</h2>
-                <span className="rounded-full bg-teal-50 px-3 py-1 text-sm font-bold text-teal-800">{shelters.length} obiekty</span>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {shelters.map((shelter) => (
-                  <button
-                    className={`overflow-hidden rounded-lg border text-left transition hover:-translate-y-0.5 hover:shadow-md ${selectedShelter?.id === shelter.id ? "border-teal-600 bg-teal-50" : "border-slate-200 bg-white"}`}
-                    key={shelter.id}
-                    onClick={() => setSelectedShelterId(shelter.id)}
-                    type="button"
-                  >
-                    <img className="h-36 w-full object-cover" src={shelter.imageUrl} alt={shelter.name} />
-                    <div className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="font-black">{shelter.name}</h3>
-                          <p className="mt-1 text-sm font-semibold text-slate-500">{shelter.location}</p>
-                        </div>
-                        <span className="rounded-md bg-slate-950 px-2 py-1 text-sm font-bold text-white">{shelter.rating}</span>
-                      </div>
-                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{shelter.description}</p>
-                      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                        <span className="rounded-md bg-slate-100 px-3 py-2 font-bold">{shelter.beds} miejsc</span>
-                        <span className="rounded-md bg-amber-50 px-3 py-2 font-bold text-amber-900">od {shelter.price}</span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-black">Rezerwacja</h2>
-              {selectedShelter && (
-                <div className="mt-4 rounded-md bg-slate-100 p-4">
-                  <h3 className="font-black">{selectedShelter.name}</h3>
-                  <p className="mt-1 text-sm text-slate-600">{selectedShelter.phone} | {selectedShelter.email}</p>
-                </div>
-              )}
-              <div className="mt-4 grid gap-3">
-                {rooms.map((room) => (
-                  <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 p-3 hover:border-teal-600" key={room.id}>
-                    <span>
-                      <span className="block font-bold">{room.name}</span>
-                      <span className="text-sm text-slate-500">{room.capacity} miejsc</span>
-                    </span>
-                    <span className="font-black">{room.pricePerNight} zl</span>
-                    <input
-                      checked={reservationForm.roomId === String(room.id) || (!reservationForm.roomId && room.id === rooms[0]?.id)}
-                      name="room"
-                      onChange={() => setReservationForm((current) => ({ ...current, roomId: String(room.id) }))}
-                      type="radio"
-                    />
-                  </label>
-                ))}
-              </div>
-              <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={createReservation}>
-                <input className="field" type="date" value={reservationForm.startDate} onChange={(event) => setReservationForm((current) => ({ ...current, startDate: event.target.value }))} />
-                <input className="field" type="date" value={reservationForm.endDate} onChange={(event) => setReservationForm((current) => ({ ...current, endDate: event.target.value }))} />
-                <input className="field" min="1" type="number" value={reservationForm.guestCount} onChange={(event) => setReservationForm((current) => ({ ...current, guestCount: event.target.value }))} />
-                <button className="primary-btn" type="submit">Zarezerwuj</button>
-              </form>
-            </section>
           </div>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-black">Rezerwacje</h2>
-              <button className="secondary-btn" onClick={() => loadReservations(session?.role === "USER" ? session.userId : undefined)} type="button">Odswiez</button>
-            </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[760px] border-separate border-spacing-0 text-sm">
-                <thead>
-                  <tr className="text-left text-slate-500">
-                    <th className="table-head">Gosc</th>
-                    <th className="table-head">Schronisko</th>
-                    <th className="table-head">Pokoj</th>
-                    <th className="table-head">Termin</th>
-                    <th className="table-head">Cena</th>
-                    <th className="table-head">Status</th>
-                    <th className="table-head">Akcje</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reservations.map((reservation) => (
-                    <tr key={reservation.id}>
-                      <td className="table-cell font-bold">{reservation.userLogin}</td>
-                      <td className="table-cell">{reservation.shelterName}</td>
-                      <td className="table-cell">{reservation.roomName}</td>
-                      <td className="table-cell">{reservation.startDate} - {reservation.endDate}</td>
-                      <td className="table-cell font-bold">{reservation.totalPrice} zl</td>
-                      <td className="table-cell"><Status status={reservation.status} /></td>
-                      <td className="table-cell">
-                        <div className="flex gap-2">
-                          <button className="mini-btn" onClick={() => updateReservation(reservation.id, "confirm")} type="button">OK</button>
-                          <button className="mini-danger" onClick={() => updateReservation(reservation.id, "cancel")} type="button">Anuluj</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </section>
-      </div>
-    </main>
-  );
-}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {shelters.map((s) => (
+              <div key={s.id} className="group overflow-hidden rounded-xl border border-zinc-200 bg-white transition hover:border-zinc-300 hover:shadow-md">
+                <div className="relative h-48 overflow-hidden bg-zinc-100">
+                  {s.imageUrl
+                    ? <img className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" src={s.imageUrl} alt={s.name} />
+                    : <div className="flex h-full items-center justify-center text-zinc-300 text-4xl">⛰</div>}
+                  <div className="absolute right-3 top-3 rounded-md bg-white/90 px-2 py-0.5 text-xs font-semibold text-zinc-800 backdrop-blur shadow-sm">
+                    ★ {s.rating.toFixed(1)}
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-semibold leading-snug">{s.name}</h3>
+                      <p className="mt-0.5 text-xs text-zinc-500">{s.location}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-zinc-500">{s.description}</p>
+                  <div className="mt-4 flex items-center justify-between gap-2">
+                    <div className="flex gap-2 text-xs text-zinc-500">
+                      <span className="rounded border border-zinc-100 bg-zinc-50 px-2 py-1">{s.beds} miejsc</span>
+                      <span className="rounded border border-zinc-100 bg-zinc-50 px-2 py-1 font-medium text-zinc-700">od {s.price}</span>
+                    </div>
+                    <button
+                      className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-700"
+                      onClick={() => session ? router.push("/dashboard") : openModal("login")}
+                    >Rezerwuj</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-md bg-slate-100 p-3">
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-      <strong className="mt-1 block text-2xl">{value}</strong>
+          {shelters.length === 0 && (
+            <div className="py-20 text-center">
+              <p className="text-zinc-400">Brak schronisk dla podanej lokalizacji.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      {!session && (
+        <section className="border-t border-zinc-100 bg-zinc-950 px-6 py-20 text-center">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">Dołącz już dziś</p>
+          <h2 className="mb-6 text-3xl font-bold text-white">Zarezerwuj swój nocleg online</h2>
+          <button
+            className="rounded-lg bg-white px-8 py-3 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-100"
+            onClick={() => openModal("register")}
+          >Utwórz konto — bezpłatnie →</button>
+        </section>
+      )}
+
+      {/* ── FOOTER ── */}
+      <footer className="border-t border-zinc-100 px-6 py-8">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 text-xs text-zinc-400">
+          <span className="font-semibold text-zinc-900">SchroniskoHub</span>
+          <span>© 2024 · Projekt akademicki</span>
+        </div>
+      </footer>
+
+      {/* ── MODAL ── */}
+      {modal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 p-4 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setModal(null)}
+        >
+          <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex gap-1 rounded-lg bg-zinc-100 p-1">
+              {(["login", "register"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  className={`flex-1 rounded-md py-2 text-sm font-semibold transition ${authTab === tab ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"}`}
+                  onClick={() => { setAuthTab(tab); setError(""); }}
+                >{tab === "login" ? "Logowanie" : "Rejestracja"}</button>
+              ))}
+            </div>
+
+            {error && (
+              <div className={`mb-4 rounded-lg px-3 py-2.5 text-sm ${error.startsWith("✓") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                {error}
+              </div>
+            )}
+
+            {authTab === "login" ? (
+              <>
+                <form className="space-y-3" onSubmit={handleLogin}>
+                  <input className="field" value={loginLogin} onChange={(e) => setLoginLogin(e.target.value)} placeholder="Login" required />
+                  <input className="field" type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="Hasło" required />
+                  <button className="btn-primary w-full h-10" type="submit">Zaloguj się</button>
+                </form>
+                <div className="mt-5">
+                  <p className="mb-2 text-xs font-medium text-zinc-400">Konta demo</p>
+                  <div className="space-y-1.5">
+                    {[["admin","admin123","ADMIN"],["host","host123","HOST"],["user","user123","USER"]].map(([l,p,r]) => (
+                      <button key={l}
+                        className="w-full rounded-md border border-zinc-100 px-3 py-2 text-left text-xs text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 transition flex items-center gap-2"
+                        onClick={() => { setLoginLogin(l); setLoginPassword(p); }}>
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${r==="ADMIN"?"bg-red-50 text-red-500":r==="HOST"?"bg-amber-50 text-amber-600":"bg-emerald-50 text-emerald-600"}`}>{r}</span>
+                        {l} · {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <form className="space-y-3" onSubmit={handleRegister}>
+                <input className="field" value={regLogin} onChange={(e) => setRegLogin(e.target.value)} placeholder="Login" required />
+                <input className="field" type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="Email" required />
+                <input className="field" type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="Hasło (min. 6 znaków)" minLength={6} required />
+                <button className="btn-primary w-full h-10" type="submit">Utwórz konto</button>
+              </form>
+            )}
+            <button className="mt-4 w-full text-center text-xs text-zinc-400 hover:text-zinc-600 transition" onClick={() => setModal(null)}>
+              Zamknij
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-function Status({ status }: { status: Reservation["status"] }) {
-  const className =
-    status === "CONFIRMED"
-      ? "bg-emerald-50 text-emerald-700"
-      : status === "CANCELLED"
-        ? "bg-rose-50 text-rose-700"
-        : "bg-amber-50 text-amber-800";
-
-  return <span className={`rounded-full px-3 py-1 text-xs font-black ${className}`}>{status}</span>;
 }

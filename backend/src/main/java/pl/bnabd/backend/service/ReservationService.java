@@ -55,7 +55,14 @@ public class ReservationService {
         }
 
         long nights = ChronoUnit.DAYS.between(request.startDate(), request.endDate());
-        BigDecimal totalPrice = room.getPricePerNight().multiply(BigDecimal.valueOf(nights));
+        BigDecimal roomCost = room.getPricePerNight().multiply(BigDecimal.valueOf(nights));
+
+        String boardType = (request.boardType() == null || request.boardType().isBlank())
+                ? "Bez wyżywienia" : request.boardType();
+        BigDecimal boardSurcharge = boardSurchargePerPersonPerNight(boardType)
+                .multiply(BigDecimal.valueOf(request.guestCount()))
+                .multiply(BigDecimal.valueOf(nights));
+        BigDecimal totalPrice = roomCost.add(boardSurcharge);
 
         Reservation reservation = new Reservation();
         reservation.setUser(currentUser);
@@ -64,6 +71,7 @@ public class ReservationService {
         reservation.setEndDate(request.endDate());
         reservation.setGuestCount(request.guestCount());
         reservation.setTotalPrice(totalPrice);
+        reservation.setBoardType(boardType);
         reservation.setStatus(ReservationStatus.PENDING);
 
         return toDto(reservationRepository.save(reservation));
@@ -95,6 +103,15 @@ public class ReservationService {
         return toDto(reservation);
     }
 
+    private BigDecimal boardSurchargePerPersonPerNight(String boardType) {
+        return switch (boardType) {
+            case "Śniadanie"            -> new BigDecimal("20");
+            case "Śniadanie i kolacja"  -> new BigDecimal("45");
+            case "Pełne wyżywienie"     -> new BigDecimal("65");
+            default                     -> BigDecimal.ZERO;
+        };
+    }
+
     private Reservation findEntity(long id) {
         return reservationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Nie znaleziono rezerwacji o id " + id + "."));
@@ -115,6 +132,7 @@ public class ReservationService {
                 reservation.getGuestCount(),
                 reservation.getTotalPrice(),
                 reservation.getStatus(),
+                reservation.getBoardType(),
                 reservation.getCreatedAt());
     }
 }

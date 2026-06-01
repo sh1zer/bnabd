@@ -3,12 +3,14 @@ package pl.bnabd.backend.service;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pl.bnabd.backend.dto.RoomAvailabilityDto;
 import pl.bnabd.backend.dto.RoomDto;
 import pl.bnabd.backend.dto.RoomRequest;
 import pl.bnabd.backend.dto.ShelterDto;
 import pl.bnabd.backend.dto.ShelterRequest;
 import pl.bnabd.backend.exception.ForbiddenException;
 import pl.bnabd.backend.exception.NotFoundException;
+import java.time.LocalDate;
 import pl.bnabd.backend.model.AppUser;
 import pl.bnabd.backend.model.Room;
 import pl.bnabd.backend.model.Shelter;
@@ -67,6 +69,21 @@ public class ShelterService {
     public List<RoomDto> findRooms(long shelterId) {
         findEntityById(shelterId);
         return roomRepository.findByShelterId(shelterId).stream().map(this::toDto).toList();
+    }
+
+    public List<RoomAvailabilityDto> findRoomsWithAvailability(long shelterId, LocalDate startDate, LocalDate endDate) {
+        findEntityById(shelterId);
+        return roomRepository.findByShelterId(shelterId).stream()
+                .map(room -> {
+                    boolean occupied = reservationRepository.existsOverlapping(room.getId(), startDate, endDate);
+                    return new RoomAvailabilityDto(
+                            room.getId(),
+                            room.getName(),
+                            room.getCapacity(),
+                            room.getPricePerNight(),
+                            !occupied);
+                })
+                .toList();
     }
 
     @Transactional

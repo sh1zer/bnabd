@@ -1,6 +1,7 @@
 package pl.bnabd.backend.controller;
 
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import pl.bnabd.backend.dto.RoomAvailabilityDto;
 import pl.bnabd.backend.dto.RoomDto;
 import pl.bnabd.backend.dto.RoomRequest;
 import pl.bnabd.backend.dto.ShelterDto;
@@ -46,6 +48,14 @@ public class ShelterController {
     @GetMapping("/{id}/rooms")
     List<RoomDto> listRooms(@PathVariable long id) {
         return shelterService.findRooms(id);
+    }
+
+    @GetMapping("/{id}/rooms/availability")
+    List<RoomAvailabilityDto> checkAvailability(
+            @PathVariable long id,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate) {
+        return shelterService.findRoomsWithAvailability(id, startDate, endDate);
     }
 
     @PostMapping
