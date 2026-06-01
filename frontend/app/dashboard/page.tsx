@@ -2,6 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Razorpay: new (options: Record<string, unknown>) => { open(): void };
+  }
+}
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -53,6 +60,7 @@ export default function Dashboard() {
   const [hostSubTab, setHostSubTab]                       = useState<"rooms"|"employees"|"menu">("rooms");
   const [adminEmpShelterId, setAdminEmpShelterId]         = useState("");
   const [msg, setMsg]                                     = useState("");
+  const [msgError, setMsgError]                           = useState(false);
 
   // Forms
   const [resForm, setResForm]         = useState({ shelterId: "", roomId: "", startDate: "", endDate: "", guestCount: "2", boardType: "Bez wyżywienia" });
@@ -119,23 +127,73 @@ export default function Dashboard() {
     } catch { setRoomAvail([]); setAvailLoaded(false); }
   }
 
-  function notify(text: string) { setMsg(text); setTimeout(() => setMsg(""), 4000); }
+  function notify(text: string, error = false) { setMsg(text); setMsgError(error); setTimeout(() => { setMsg(""); setMsgError(false); }, 4000); }
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
   function logout() { localStorage.removeItem("bnabd_session"); router.push("/"); }
 
   async function act(fn: () => Promise<void>) {
-    try { await fn(); } catch (e) { notify(e instanceof Error ? e.message : "Błąd."); }
+    try { await fn(); } catch (e) { notify(e instanceof Error ? e.message : "Błąd.", true); }
   }
 
   async function createReservation(e: FormEvent) {
     e.preventDefault();
     await act(async () => {
-      await call("/api/reservations", { method: "POST", body: JSON.stringify({ roomId: Number(resForm.roomId), startDate: resForm.startDate, endDate: resForm.endDate, guestCount: Number(resForm.guestCount), boardType: resForm.boardType }) });
-      notify("Rezerwacja złożona.");
+      const reservation = await call<Reservation>("/api/reservations", {
+        method: "POST",
+        body: JSON.stringify({ roomId: Number(resForm.roomId), startDate: resForm.startDate, endDate: resForm.endDate, guestCount: Number(resForm.guestCount), boardType: resForm.boardType }),
+      });
+      const result = await openRazorpay(reservation);
       await load<Reservation[]>("/api/reservations", setReservations);
       if (session?.role === "ADMIN") await load<Stats>("/api/admin/stats", setStats);
+      if (result === "confirmed") notify("Płatność zakończona sukcesem. Rezerwacja potwierdzona.");
+      else notify("Płatność anulowana. Rezerwacja została cofnięta.", true);
+    });
+  }
+
+  async function openRazorpay(reservation: Reservation) {
+    const order = await call<{ orderId: string; amountPaise: number; currency: string; keyId: string }>("/api/payments/create-order", {
+      method: "POST",
+      body: JSON.stringify({ reservationId: reservation.id }),
+    });
+
+    return new Promise<"confirmed" | "cancelled">((resolve, reject) => {
+      const rzp = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amountPaise,
+        currency: order.currency,
+        name: "SchroniskoHub",
+        description: `Rezerwacja #${reservation.id} — ${reservation.shelterName}`,
+        order_id: order.orderId,
+        prefill: { email: session?.email ?? "", name: session?.login ?? "" },
+        theme: { color: "#18181b" },
+        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            await call("/api/payments/verify", {
+              method: "POST",
+              body: JSON.stringify({
+                reservationId: reservation.id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            });
+            resolve("confirmed");
+          } catch (err) {
+            reject(err);
+          }
+        },
+        modal: {
+          ondismiss: async () => {
+            try {
+              await call(`/api/reservations/${reservation.id}/cancel`, { method: "PATCH" });
+            } catch { /* already cancelled or gone */ }
+            resolve("cancelled");
+          },
+        },
+      });
+      rzp.open();
     });
   }
 
@@ -316,7 +374,7 @@ export default function Dashboard() {
             </button>
             <h1 className="text-sm font-semibold">{navItems.find((n) => n.key === nav)?.label ?? "Panel"}</h1>
           </div>
-          {msg && <p className="text-xs font-medium text-zinc-600 bg-zinc-100 rounded-md px-3 py-1.5">{msg}</p>}
+          {msg && <p className={`text-xs font-medium rounded-md px-3 py-1.5 ${msgError ? "bg-red-50 text-red-600 border border-red-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>{msg}</p>}
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">
@@ -452,7 +510,9 @@ export default function Dashboard() {
                             <td className="table-cell"><RStatus status={r.status} /></td>
                             <td className="table-cell">
                               <div className="flex gap-1.5">
-                                {r.status === "PENDING" && <button className="btn-sm-primary" onClick={() => updateReservation(r.id, "confirm")}>Potwierdź</button>}
+                                {r.status === "PENDING" && (session.role === "ADMIN" || (session.role === "HOST" && hostShelters.some((s) => s.id === r.shelterId))) && (
+                                  <button className="btn-sm-primary" onClick={() => updateReservation(r.id, "confirm")}>Potwierdź</button>
+                                )}
                                 {r.status !== "CANCELLED" && <button className="btn-sm-danger" onClick={() => updateReservation(r.id, "cancel")}>Anuluj</button>}
                               </div>
                             </td>
