@@ -7,6 +7,7 @@ import pl.bnabd.backend.model.AppUser;
 import pl.bnabd.backend.model.Reservation;
 import pl.bnabd.backend.model.ReservationStatus;
 import pl.bnabd.backend.model.Room;
+import pl.bnabd.backend.model.RoomType;
 import pl.bnabd.backend.model.Shelter;
 import pl.bnabd.backend.model.UserRole;
 
@@ -35,11 +36,16 @@ public final class TestFixtures {
     }
 
     public static Room room(long id, Shelter shelter, int capacity, String pricePerNight) {
+        return room(id, shelter, capacity, RoomType.WHOLE, pricePerNight);
+    }
+
+    public static Room room(long id, Shelter shelter, int capacity, RoomType roomType, String pricePerNight) {
         Room room = new Room();
         ReflectionTestUtils.setField(room, "id", id);
         room.setShelter(shelter);
         room.setName("Pokoj " + id);
         room.setCapacity(capacity);
+        room.setRoomType(roomType);
         room.setPricePerNight(new BigDecimal(pricePerNight));
         return room;
     }

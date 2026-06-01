@@ -35,6 +35,19 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("endDate") LocalDate endDate);
 
     @Query("""
+            select coalesce(sum(r.guestCount), 0)
+            from Reservation r
+            where r.room.id = :roomId
+              and r.status <> pl.bnabd.backend.model.ReservationStatus.CANCELLED
+              and r.startDate < :endDate
+              and r.endDate > :startDate
+            """)
+    int sumOverlappingGuests(
+            @Param("roomId") Long roomId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    @Query("""
             select count(r) > 0
             from Reservation r
             where r.user.id = :userId

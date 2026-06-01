@@ -11,6 +11,7 @@ import pl.bnabd.backend.model.Reservation;
 import pl.bnabd.backend.model.ReservationStatus;
 import pl.bnabd.backend.model.Review;
 import pl.bnabd.backend.model.Room;
+import pl.bnabd.backend.model.RoomType;
 import pl.bnabd.backend.model.Shelter;
 import pl.bnabd.backend.model.UserRole;
 import pl.bnabd.backend.repository.ReservationRepository;
@@ -78,16 +79,17 @@ public class DatabaseSeedService implements CommandLineRunner {
         Shelter halna = shelterRepository.save(shelter(host, "Stacja Halna", "Baza noclegowa dla grup i samotnych wedrowcow.", "Beskid Zywiecki", "+48 600 200 300", "recepcja@stacjahalna.pl", "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=900&q=80", 4.6));
         Shelter pass = shelterRepository.save(shelter(admin, "Dom na Przeleczy", "Schronisko z widokiem na gran i prosta rezerwacja pokoi.", "Karkonosze", "+48 600 300 400", "hello@domnaprzeleczy.pl", "https://images.unsplash.com/photo-1445307806294-bff7f67ff225?auto=format&fit=crop&w=900&q=80", 4.9));
 
-        Room r1 = roomRepository.save(room(granite, "Pokoj 2-osobowy", 2, "110"));
-        Room r2 = roomRepository.save(room(granite, "Pokoj 4-osobowy", 4, "89"));
-        roomRepository.save(room(granite, "Sala turystyczna", 8, "55"));
-        roomRepository.save(room(halna, "Pokoj rodzinny", 5, "72"));
-        roomRepository.save(room(halna, "Dwojka z widokiem", 2, "95"));
-        roomRepository.save(room(pass, "Apartament szczytowy", 3, "140"));
-        roomRepository.save(room(pass, "Sala wieloosobowa", 10, "60"));
+        Room r1 = roomRepository.save(room(granite, "Pokoj 2-osobowy", 2, RoomType.WHOLE, "110"));
+        Room r2 = roomRepository.save(room(granite, "Pokoj 4-osobowy", 4, RoomType.WHOLE, "89"));
+        Room dorm = roomRepository.save(room(granite, "Sala turystyczna", 8, RoomType.SHARED, "55"));
+        roomRepository.save(room(halna, "Pokoj rodzinny", 5, RoomType.WHOLE, "72"));
+        roomRepository.save(room(halna, "Dwojka z widokiem", 2, RoomType.WHOLE, "95"));
+        roomRepository.save(room(pass, "Apartament szczytowy", 3, RoomType.WHOLE, "140"));
+        roomRepository.save(room(pass, "Sala wieloosobowa", 10, RoomType.SHARED, "60"));
 
         reservationRepository.save(reservation(user, r1, LocalDate.now().plusDays(7), LocalDate.now().plusDays(10), 2, ReservationStatus.CONFIRMED));
         reservationRepository.save(reservation(user, r2, LocalDate.now().plusDays(20), LocalDate.now().plusDays(22), 3, ReservationStatus.PENDING));
+        reservationRepository.save(reservation(user, dorm, LocalDate.now().plusDays(7), LocalDate.now().plusDays(9), 3, ReservationStatus.CONFIRMED));
 
         reviewRepository.save(review(user, granite, 5, "Swietna baza wypadowa i bardzo sprawna rezerwacja."));
         reviewRepository.save(review(admin, pass, 5, "Czysto, nowoczesnie i blisko szlakow."));
@@ -106,11 +108,12 @@ public class DatabaseSeedService implements CommandLineRunner {
         return shelter;
     }
 
-    private Room room(Shelter shelter, String name, int capacity, String price) {
+    private Room room(Shelter shelter, String name, int capacity, RoomType roomType, String price) {
         Room room = new Room();
         room.setShelter(shelter);
         room.setName(name);
         room.setCapacity(capacity);
+        room.setRoomType(roomType);
         room.setPricePerNight(new BigDecimal(price));
         return room;
     }
@@ -122,7 +125,12 @@ public class DatabaseSeedService implements CommandLineRunner {
         reservation.setStartDate(startDate);
         reservation.setEndDate(endDate);
         reservation.setGuestCount(guests);
-        reservation.setTotalPrice(room.getPricePerNight().multiply(BigDecimal.valueOf(java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate))));
+        long nights = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate);
+        BigDecimal cost = room.getPricePerNight().multiply(BigDecimal.valueOf(nights));
+        if (room.getRoomType() == RoomType.SHARED) {
+            cost = cost.multiply(BigDecimal.valueOf(guests));
+        }
+        reservation.setTotalPrice(cost);
         reservation.setStatus(status);
         return reservation;
     }

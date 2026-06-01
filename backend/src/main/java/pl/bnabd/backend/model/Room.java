@@ -2,6 +2,8 @@ package pl.bnabd.backend.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -27,6 +29,10 @@ public class Room {
     private String name;
 
     private int capacity;
+
+    // Nullable so ddl-auto=update can add the column to existing rows; null reads as WHOLE.
+    @Enumerated(EnumType.STRING)
+    private RoomType roomType = RoomType.WHOLE;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal pricePerNight;
@@ -60,6 +66,14 @@ public class Room {
 
     public void setCapacity(int capacity) {
         this.capacity = capacity;
+    }
+
+    public RoomType getRoomType() {
+        return roomType == null ? RoomType.WHOLE : roomType;
+    }
+
+    public void setRoomType(RoomType roomType) {
+        this.roomType = roomType;
     }
 
     public BigDecimal getPricePerNight() {

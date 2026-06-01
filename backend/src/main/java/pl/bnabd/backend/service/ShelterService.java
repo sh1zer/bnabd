@@ -13,6 +13,7 @@ import pl.bnabd.backend.exception.NotFoundException;
 import java.time.LocalDate;
 import pl.bnabd.backend.model.AppUser;
 import pl.bnabd.backend.model.Room;
+import pl.bnabd.backend.model.RoomType;
 import pl.bnabd.backend.model.Shelter;
 import pl.bnabd.backend.model.UserRole;
 import pl.bnabd.backend.repository.ReservationRepository;
@@ -75,13 +76,22 @@ public class ShelterService {
         findEntityById(shelterId);
         return roomRepository.findByShelterId(shelterId).stream()
                 .map(room -> {
-                    boolean occupied = reservationRepository.existsOverlapping(room.getId(), startDate, endDate);
+                    int remaining;
+                    if (room.getRoomType() == RoomType.SHARED) {
+                        int booked = reservationRepository.sumOverlappingGuests(room.getId(), startDate, endDate);
+                        remaining = Math.max(0, room.getCapacity() - booked);
+                    } else {
+                        boolean occupied = reservationRepository.existsOverlapping(room.getId(), startDate, endDate);
+                        remaining = occupied ? 0 : room.getCapacity();
+                    }
                     return new RoomAvailabilityDto(
                             room.getId(),
                             room.getName(),
                             room.getCapacity(),
+                            room.getRoomType(),
                             room.getPricePerNight(),
-                            !occupied);
+                            remaining > 0,
+                            remaining);
                 })
                 .toList();
     }
@@ -182,6 +192,7 @@ public class ShelterService {
     private void apply(Room room, RoomRequest request) {
         room.setName(request.name());
         room.setCapacity(request.capacity());
+        room.setRoomType(request.roomType() == null ? RoomType.WHOLE : request.roomType());
         room.setPricePerNight(request.pricePerNight());
     }
 
@@ -215,6 +226,7 @@ public class ShelterService {
                 room.getShelter().getName(),
                 room.getName(),
                 room.getCapacity(),
+                room.getRoomType(),
                 room.getPricePerNight());
     }
 }

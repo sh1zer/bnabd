@@ -26,6 +26,7 @@ import pl.bnabd.backend.model.AppUser;
 import pl.bnabd.backend.model.Reservation;
 import pl.bnabd.backend.model.ReservationStatus;
 import pl.bnabd.backend.model.Room;
+import pl.bnabd.backend.model.RoomType;
 import pl.bnabd.backend.model.Shelter;
 import pl.bnabd.backend.model.UserRole;
 import pl.bnabd.backend.repository.ReservationRepository;
@@ -96,6 +97,41 @@ class ReservationServiceTest {
     void createRejectsOverlappingDates() {
         when(shelterService.findRoomById(100L)).thenReturn(room);
         when(reservationRepository.existsOverlapping(eq(100L), any(), any())).thenReturn(true);
+        CreateReservationRequest request = new CreateReservationRequest(
+                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null);
+
+        assertThatThrownBy(() -> reservationService.create(request, guest))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(reservationRepository, never()).save(any());
+    }
+
+    // --- shared (dormitory) rooms ---
+
+    // shared room -> price scales with guest count, partial booking allowed within capacity
+    @Test
+    void createSharedRoomScalesPriceAndAllowsPartialBooking() {
+        Room sharedRoom = room(100, shelter, 8, RoomType.SHARED, "50.00");
+        when(shelterService.findRoomById(100L)).thenReturn(sharedRoom);
+        when(reservationRepository.sumOverlappingGuests(eq(100L), any(), any())).thenReturn(3);
+        when(reservationRepository.save(any(Reservation.class))).thenAnswer(call -> call.getArgument(0));
+
+        CreateReservationRequest request = new CreateReservationRequest(
+                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null);
+
+        ReservationDto dto = reservationService.create(request, guest);
+
+        assertThat(dto.status()).isEqualTo(ReservationStatus.PENDING);
+        // 2 nights * 50.00 * 2 guests
+        assertThat(dto.totalPrice()).isEqualByComparingTo("200.00");
+    }
+
+    // shared room -> booked slots + requested guests exceed capacity -> rejected
+    @Test
+    void createSharedRoomRejectsWhenSlotsExceedCapacity() {
+        Room sharedRoom = room(100, shelter, 8, RoomType.SHARED, "50.00");
+        when(shelterService.findRoomById(100L)).thenReturn(sharedRoom);
+        when(reservationRepository.sumOverlappingGuests(eq(100L), any(), any())).thenReturn(7);
+
         CreateReservationRequest request = new CreateReservationRequest(
                 100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null);
 

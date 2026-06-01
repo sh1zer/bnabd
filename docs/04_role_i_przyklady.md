@@ -138,8 +138,13 @@ sequenceDiagram
     U->>F: wybór pokoju i terminu
     F->>B: POST /api/reservations (JWT)
     B->>B: walidacja JWT i danych
-    B->>DB: sprawdzenie dostępności terminu
-    DB-->>B: brak kolizji
+    alt pokój WHOLE
+        B->>DB: sprawdzenie kolizji terminów
+        DB-->>B: brak kolizji
+    else pokój SHARED
+        B->>DB: suma zajętych miejsc w terminie
+        DB-->>B: zajęte miejsca < pojemność
+    end
     B->>DB: INSERT reservation
     DB-->>B: id rezerwacji
     B-->>F: 201 Created

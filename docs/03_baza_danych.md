@@ -48,8 +48,13 @@ Tabela przechowuje dane pokoi dostępnych w schroniskach.
 ### Zawiera:
 - schronisko,
 - nazwę pokoju,
-- liczbę miejsc,
+- liczbę miejsc (pojemność),
+- typ pokoju (`WHOLE` / `SHARED`),
 - cenę za noc.
+
+### Typy pokoi:
+- **WHOLE** (cały pokój) — wynajmowany w całości; jedna rezerwacja blokuje pokój w danym terminie. Cena stała za noc.
+- **SHARED** (dormitorium) — miejsca sprzedawane pojedynczo; goście dzielą pokój do wyczerpania pojemności. Cena za noc za każde zajęte miejsce.
 
 
 ## reservations
@@ -59,9 +64,10 @@ Tabela przechowuje rezerwacje użytkowników.
 - użytkownika,
 - pokój,
 - datę rozpoczęcia i zakończenia pobytu,
+- liczbę gości,
 - status rezerwacji,
 - datę utworzenia,
-- cenę (w momenciu stworzenia rezerwacji),
+- cenę (w momencie stworzenia rezerwacji).
 
 ### Statusy:
 - PENDING,

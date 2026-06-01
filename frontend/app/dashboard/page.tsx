@@ -15,8 +15,9 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 
 type Session     = { token: string; userId: number; login: string; email: string; role: "USER"|"HOST"|"ADMIN" };
 type Shelter     = { id: number; ownerId: number; name: string; description: string; location: string; phone: string; email: string; imageUrl: string; rating: number; beds: number; price: string };
-type Room        = { id: number; shelterId: number; shelterName: string; name: string; capacity: number; pricePerNight: number };
-type RoomAvail   = { id: number; name: string; capacity: number; pricePerNight: number; available: boolean };
+type RoomType    = "WHOLE" | "SHARED";
+type Room        = { id: number; shelterId: number; shelterName: string; name: string; capacity: number; roomType: RoomType; pricePerNight: number };
+type RoomAvail   = { id: number; name: string; capacity: number; roomType: RoomType; pricePerNight: number; available: boolean; availableCapacity: number };
 type Reservation = { id: number; userId: number; userLogin: string; roomId: number; roomName: string; shelterId: number; shelterName: string; startDate: string; endDate: string; guestCount: number; totalPrice: number; status: "PENDING"|"CONFIRMED"|"CANCELLED"; boardType: string };
 type Review      = { id: number; userId: number; userLogin: string; shelterId: number; shelterName: string; rating: number; comment: string; createdAt: string };
 type UserRecord  = { id: number; login: string; email: string; role: "USER"|"HOST"|"ADMIN"; createdAt: string };
@@ -67,7 +68,7 @@ export default function Dashboard() {
   const [reviewRating, setReviewRating]   = useState("5");
   const [reviewComment, setReviewComment] = useState("");
   const [hostShelterF, setHostShelterF]   = useState({ name: "", description: "", location: "", phone: "", email: "", imageUrl: "" });
-  const [hostRoomF, setHostRoomF]         = useState({ name: "", capacity: "2", pricePerNight: "50" });
+  const [hostRoomF, setHostRoomF]         = useState({ name: "", capacity: "2", roomType: "WHOLE", pricePerNight: "50" });
   const [empF, setEmpF]                   = useState({ firstName: "", lastName: "", position: "", phone: "" });
   const [adminEmpF, setAdminEmpF]         = useState({ firstName: "", lastName: "", position: "", phone: "" });
   const [menuF, setMenuF]                 = useState({ name: "", description: "", price: "20", category: "Śniadanie" });
@@ -230,8 +231,8 @@ export default function Dashboard() {
     e.preventDefault();
     if (!selectedHostShelterId) return;
     await act(async () => {
-      await call(`/api/shelters/${selectedHostShelterId}/rooms`, { method: "POST", body: JSON.stringify({ name: hostRoomF.name, capacity: Number(hostRoomF.capacity), pricePerNight: Number(hostRoomF.pricePerNight) }) });
-      notify("Pokój dodany."); setHostRoomF({ name: "", capacity: "2", pricePerNight: "50" });
+      await call(`/api/shelters/${selectedHostShelterId}/rooms`, { method: "POST", body: JSON.stringify({ name: hostRoomF.name, capacity: Number(hostRoomF.capacity), roomType: hostRoomF.roomType, pricePerNight: Number(hostRoomF.pricePerNight) }) });
+      notify("Pokój dodany."); setHostRoomF({ name: "", capacity: "2", roomType: "WHOLE", pricePerNight: "50" });
       await load<Room[]>(`/api/shelters/${selectedHostShelterId}/rooms`, setRooms);
     });
   }
@@ -315,6 +316,9 @@ export default function Dashboard() {
   ] as const;
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  const selectedAvail = roomAvail.find((r) => String(r.id) === resForm.roomId);
+  const maxGuests = selectedAvail ? (selectedAvail.roomType === "SHARED" ? selectedAvail.availableCapacity : selectedAvail.capacity) : undefined;
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-50 text-zinc-900">
@@ -440,11 +444,13 @@ export default function Dashboard() {
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-sm font-semibold">{room.name}</span>
                               <span className={`text-[10px] font-semibold uppercase tracking-wide ${!room.available ? "text-red-400" : resForm.roomId === String(room.id) ? "text-zinc-300" : "text-emerald-600"}`}>
-                                {room.available ? "Wolny" : "Zajęty"}
+                                {room.roomType === "SHARED"
+                                  ? (room.available ? `${room.availableCapacity} wolnych miejsc` : "Brak miejsc")
+                                  : (room.available ? "Wolny" : "Zajęty")}
                               </span>
                             </div>
                             <p className={`mt-1 text-xs ${resForm.roomId === String(room.id) ? "text-zinc-300" : "text-zinc-400"}`}>
-                              {room.capacity} miejsc · {room.pricePerNight} zł/noc
+                              {room.roomType === "SHARED" ? `${room.availableCapacity}/${room.capacity} miejsc · ${room.pricePerNight} zł/miejsce/noc` : `${room.capacity} miejsc · ${room.pricePerNight} zł/noc`}
                             </p>
                           </button>
                         ))}
@@ -456,7 +462,7 @@ export default function Dashboard() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-zinc-500">Goście</label>
-                      <input className="field" type="number" min="1" value={resForm.guestCount} onChange={(e) => setResForm((c) => ({ ...c, guestCount: e.target.value }))} />
+                      <input className="field" type="number" min="1" max={maxGuests} value={resForm.guestCount} onChange={(e) => setResForm((c) => ({ ...c, guestCount: e.target.value }))} />
                     </div>
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-zinc-500">Wyżywienie</label>
@@ -634,7 +640,7 @@ export default function Dashboard() {
                             <div key={r.id} className="flex items-center justify-between p-4">
                               <div>
                                 <span className="text-sm font-medium">{r.name}</span>
-                                <span className="ml-3 text-xs text-zinc-400">{r.capacity} miejsc · {r.pricePerNight} zł/noc</span>
+                                <span className="ml-3 text-xs text-zinc-400">{r.roomType === "SHARED" ? "wspólny" : "cały pokój"} · {r.capacity} miejsc · {r.pricePerNight} zł/{r.roomType === "SHARED" ? "miejsce/" : ""}noc</span>
                               </div>
                               <button className="btn-sm-danger" onClick={() => deleteRoom(selectedHostShelterId, r.id)}>Usuń</button>
                             </div>
@@ -643,7 +649,11 @@ export default function Dashboard() {
                         <form className="grid gap-3 sm:grid-cols-3" onSubmit={addRoom}>
                           <input className="field" value={hostRoomF.name} onChange={(e) => setHostRoomF((c) => ({...c,name:e.target.value}))} placeholder="Nazwa pokoju" required />
                           <input className="field" type="number" min="1" value={hostRoomF.capacity} onChange={(e) => setHostRoomF((c) => ({...c,capacity:e.target.value}))} placeholder="Miejsca" />
-                          <input className="field" type="number" min="1" value={hostRoomF.pricePerNight} onChange={(e) => setHostRoomF((c) => ({...c,pricePerNight:e.target.value}))} placeholder="Cena/noc (zł)" />
+                          <select className="field" value={hostRoomF.roomType} onChange={(e) => setHostRoomF((c) => ({...c,roomType:e.target.value}))}>
+                            <option value="WHOLE">Cały pokój</option>
+                            <option value="SHARED">Pokój wspólny</option>
+                          </select>
+                          <input className="field" type="number" min="1" value={hostRoomF.pricePerNight} onChange={(e) => setHostRoomF((c) => ({...c,pricePerNight:e.target.value}))} placeholder={hostRoomF.roomType === "SHARED" ? "Cena/miejsce/noc (zł)" : "Cena/noc (zł)"} />
                           <button className="btn-primary sm:col-span-3" type="submit">Dodaj pokój</button>
                         </form>
                       </>

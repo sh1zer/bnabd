@@ -13,6 +13,7 @@ import pl.bnabd.backend.model.AppUser;
 import pl.bnabd.backend.model.Reservation;
 import pl.bnabd.backend.model.ReservationStatus;
 import pl.bnabd.backend.model.Room;
+import pl.bnabd.backend.model.RoomType;
 import pl.bnabd.backend.model.UserRole;
 import pl.bnabd.backend.repository.ReservationRepository;
 
@@ -50,12 +51,23 @@ public class ReservationService {
         if (request.guestCount() > room.getCapacity()) {
             throw new IllegalArgumentException("Liczba gosci przekracza pojemnosc pokoju.");
         }
-        if (reservationRepository.existsOverlapping(room.getId(), request.startDate(), request.endDate())) {
+
+        boolean shared = room.getRoomType() == RoomType.SHARED;
+        if (shared) {
+            int bookedSlots = reservationRepository.sumOverlappingGuests(
+                    room.getId(), request.startDate(), request.endDate());
+            if (bookedSlots + request.guestCount() > room.getCapacity()) {
+                throw new IllegalArgumentException("Brak wolnych miejsc w pokoju wspolnym w wybranym terminie.");
+            }
+        } else if (reservationRepository.existsOverlapping(room.getId(), request.startDate(), request.endDate())) {
             throw new IllegalArgumentException("Ten pokoj jest juz zajety w wybranym terminie.");
         }
 
         long nights = ChronoUnit.DAYS.between(request.startDate(), request.endDate());
         BigDecimal roomCost = room.getPricePerNight().multiply(BigDecimal.valueOf(nights));
+        if (shared) {
+            roomCost = roomCost.multiply(BigDecimal.valueOf(request.guestCount()));
+        }
 
         String boardType = (request.boardType() == null || request.boardType().isBlank())
                 ? "Bez wyżywienia" : request.boardType();
