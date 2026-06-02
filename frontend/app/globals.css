@@ -5,50 +5,61 @@
 :root {
   color-scheme: light;
 }
+.dark {
+  color-scheme: dark;
+}
 
 * { box-sizing: border-box; }
-
 html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
-  background: #fafafa;
-  color: #09090b;
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+  @apply bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
 }
 
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 
 @layer components {
+  /* ── Inputs ── */
   .field {
     @apply h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none
            placeholder:text-zinc-400 transition-colors
-           focus:border-zinc-400 focus:ring-2 focus:ring-zinc-900/5;
+           focus:border-zinc-400 focus:ring-2 focus:ring-zinc-900/5
+           dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100
+           dark:placeholder:text-zinc-500 dark:focus:border-zinc-500 dark:focus:ring-white/5;
   }
 
   .field-lg {
     @apply h-12 w-full rounded-lg border border-zinc-200 bg-white px-4 text-base text-zinc-900 outline-none
            placeholder:text-zinc-400 transition-colors
-           focus:border-zinc-400 focus:ring-2 focus:ring-zinc-900/5;
+           focus:border-zinc-400 focus:ring-2 focus:ring-zinc-900/5
+           dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100
+           dark:placeholder:text-zinc-500 dark:focus:border-zinc-500 dark:focus:ring-white/5;
   }
 
+  /* ── Buttons ── */
   .btn {
     @apply inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors
-           focus:outline-none focus:ring-2 focus:ring-zinc-900/10 disabled:opacity-50;
+           focus:outline-none focus:ring-2 focus:ring-zinc-900/10 disabled:opacity-50
+           dark:focus:ring-white/10;
   }
 
   .btn-primary {
-    @apply btn bg-zinc-900 text-white hover:bg-zinc-700;
+    @apply btn bg-zinc-900 text-white hover:bg-zinc-700
+           dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white;
   }
 
   .btn-secondary {
-    @apply btn border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300;
+    @apply btn border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300
+           dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:border-zinc-600;
   }
 
   .btn-danger {
-    @apply btn border border-red-200 bg-red-50 text-red-600 hover:bg-red-100;
+    @apply btn border border-red-200 bg-red-50 text-red-600 hover:bg-red-100
+           dark:border-red-900 dark:bg-red-950 dark:text-red-400 dark:hover:bg-red-900;
   }
 
   .btn-sm {
@@ -56,43 +67,52 @@ button { cursor: pointer; }
   }
 
   .btn-sm-primary {
-    @apply btn-sm bg-zinc-900 text-white hover:bg-zinc-700;
+    @apply btn-sm bg-zinc-900 text-white hover:bg-zinc-700
+           dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white;
   }
 
   .btn-sm-secondary {
-    @apply btn-sm border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50;
+    @apply btn-sm border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50
+           dark:border-zinc-700 dark:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800;
   }
 
   .btn-sm-danger {
-    @apply btn-sm border border-red-100 text-red-500 hover:bg-red-50;
+    @apply btn-sm border border-red-100 text-red-500 hover:bg-red-50
+           dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950;
   }
 
-  /* Legacy aliases used in old components */
+  /* Legacy aliases */
   .primary-btn   { @apply btn-primary; }
   .secondary-btn { @apply btn-secondary; }
   .danger-btn    { @apply btn-danger; }
   .mini-btn      { @apply btn-sm-primary; }
   .mini-danger   { @apply btn-sm-danger; }
 
+  /* ── Table ── */
   .table-head {
-    @apply border-b border-zinc-100 bg-zinc-50 px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500;
+    @apply border-b border-zinc-100 bg-zinc-50 px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500
+           dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400;
   }
 
   .table-cell {
-    @apply border-b border-zinc-100 px-4 py-3 align-middle text-sm;
+    @apply border-b border-zinc-100 px-4 py-3 align-middle text-sm
+           dark:border-zinc-800;
   }
 
+  /* ── Card ── */
   .card {
-    @apply rounded-xl border border-zinc-200 bg-white;
+    @apply rounded-xl border border-zinc-200 bg-white
+           dark:border-zinc-800 dark:bg-zinc-900;
   }
 
+  /* ── Badges ── */
   .badge {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 
-  .badge-green  { @apply badge bg-emerald-50 text-emerald-700; }
-  .badge-red    { @apply badge bg-red-50 text-red-600; }
-  .badge-amber  { @apply badge bg-amber-50 text-amber-700; }
-  .badge-zinc   { @apply badge bg-zinc-100 text-zinc-600; }
-  .badge-blue   { @apply badge bg-blue-50 text-blue-700; }
+  .badge-green  { @apply badge bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400; }
+  .badge-red    { @apply badge bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400; }
+  .badge-amber  { @apply badge bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400; }
+  .badge-zinc   { @apply badge bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300; }
+  .badge-blue   { @apply badge bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400; }
 }

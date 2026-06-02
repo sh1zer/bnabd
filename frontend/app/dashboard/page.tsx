@@ -2,13 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-
-declare global {
-  interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Razorpay: new (options: Record<string, unknown>) => { open(): void };
-  }
-}
+import { ThemeToggle } from "../components/ThemeProvider";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -17,7 +11,6 @@ type Session     = { token: string; userId: number; login: string; email: string
 type Shelter     = { id: number; ownerId: number; name: string; description: string; location: string; phone: string; email: string; imageUrl: string; rating: number; beds: number; price: string };
 type RoomType    = "WHOLE" | "SHARED";
 type Room        = { id: number; shelterId: number; shelterName: string; name: string; capacity: number; roomType: RoomType; pricePerNight: number };
-type RoomAvail   = { id: number; name: string; capacity: number; roomType: RoomType; pricePerNight: number; available: boolean; availableCapacity: number };
 type Reservation = { id: number; userId: number; userLogin: string; roomId: number; roomName: string; shelterId: number; shelterName: string; startDate: string; endDate: string; guestCount: number; totalPrice: number; status: "PENDING"|"CONFIRMED"|"CANCELLED"; boardType: string };
 type Review      = { id: number; userId: number; userLogin: string; shelterId: number; shelterName: string; rating: number; comment: string; createdAt: string };
 type UserRecord  = { id: number; login: string; email: string; role: "USER"|"HOST"|"ADMIN"; createdAt: string };
@@ -47,8 +40,6 @@ export default function Dashboard() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [reviews, setReviews]           = useState<Review[]>([]);
   const [rooms, setRooms]               = useState<Room[]>([]);
-  const [roomAvail, setRoomAvail]       = useState<RoomAvail[]>([]);
-  const [availLoaded, setAvailLoaded]   = useState(false);
   const [users, setUsers]               = useState<UserRecord[]>([]);
   const [stats, setStats]               = useState<Stats | null>(null);
   const [employees, setEmployees]       = useState<Employee[]>([]);
@@ -64,7 +55,6 @@ export default function Dashboard() {
   const [msgError, setMsgError]                           = useState(false);
 
   // Forms
-  const [resForm, setResForm]         = useState({ shelterId: "", roomId: "", startDate: "", endDate: "", guestCount: "2", boardType: "Bez wyżywienia" });
   const [reviewRating, setReviewRating]   = useState("5");
   const [reviewComment, setReviewComment] = useState("");
   const [hostShelterF, setHostShelterF]   = useState({ name: "", description: "", location: "", phone: "", email: "", imageUrl: "" });
@@ -74,7 +64,7 @@ export default function Dashboard() {
   const [menuF, setMenuF]                 = useState({ name: "", description: "", price: "20", category: "Śniadanie" });
 
   const hostShelters = useMemo(() => session?.role === "ADMIN" ? shelters : shelters.filter((s) => s.ownerId === session?.userId), [shelters, session]);
-  const chartData    = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month-1)%12], Rez: d.count }));
+  const chartData    = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
 
   useEffect(() => {
     const s = readSession();
@@ -118,16 +108,6 @@ export default function Dashboard() {
     }
   }
 
-  async function checkAvail(sid: string, start: string, end: string) {
-    if (!sid || !start || !end || end <= start) { setRoomAvail([]); setAvailLoaded(false); return; }
-    try {
-      const data = await call<RoomAvail[]>(`/api/shelters/${sid}/rooms/availability?startDate=${start}&endDate=${end}`);
-      setRoomAvail(data); setAvailLoaded(true);
-      const first = data.find((r) => r.available);
-      if (first) setResForm((c) => ({ ...c, roomId: String(first.id) }));
-    } catch { setRoomAvail([]); setAvailLoaded(false); }
-  }
-
   function notify(text: string, error = false) { setMsg(text); setMsgError(error); setTimeout(() => { setMsg(""); setMsgError(false); }, 4000); }
 
   // ── Actions ──────────────────────────────────────────────────────────────
@@ -136,66 +116,6 @@ export default function Dashboard() {
 
   async function act(fn: () => Promise<void>) {
     try { await fn(); } catch (e) { notify(e instanceof Error ? e.message : "Błąd.", true); }
-  }
-
-  async function createReservation(e: FormEvent) {
-    e.preventDefault();
-    await act(async () => {
-      const reservation = await call<Reservation>("/api/reservations", {
-        method: "POST",
-        body: JSON.stringify({ roomId: Number(resForm.roomId), startDate: resForm.startDate, endDate: resForm.endDate, guestCount: Number(resForm.guestCount), boardType: resForm.boardType }),
-      });
-      const result = await openRazorpay(reservation);
-      await load<Reservation[]>("/api/reservations", setReservations);
-      if (session?.role === "ADMIN") await load<Stats>("/api/admin/stats", setStats);
-      if (result === "confirmed") notify("Płatność zakończona sukcesem. Rezerwacja potwierdzona.");
-      else notify("Płatność anulowana. Rezerwacja została cofnięta.", true);
-    });
-  }
-
-  async function openRazorpay(reservation: Reservation) {
-    const order = await call<{ orderId: string; amountPaise: number; currency: string; keyId: string }>("/api/payments/create-order", {
-      method: "POST",
-      body: JSON.stringify({ reservationId: reservation.id }),
-    });
-
-    return new Promise<"confirmed" | "cancelled">((resolve, reject) => {
-      const rzp = new window.Razorpay({
-        key: order.keyId,
-        amount: order.amountPaise,
-        currency: order.currency,
-        name: "SchroniskoHub",
-        description: `Rezerwacja #${reservation.id} — ${reservation.shelterName}`,
-        order_id: order.orderId,
-        prefill: { email: session?.email ?? "", name: session?.login ?? "" },
-        theme: { color: "#18181b" },
-        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-          try {
-            await call("/api/payments/verify", {
-              method: "POST",
-              body: JSON.stringify({
-                reservationId: reservation.id,
-                razorpayOrderId: response.razorpay_order_id,
-                razorpayPaymentId: response.razorpay_payment_id,
-                razorpaySignature: response.razorpay_signature,
-              }),
-            });
-            resolve("confirmed");
-          } catch (err) {
-            reject(err);
-          }
-        },
-        modal: {
-          ondismiss: async () => {
-            try {
-              await call(`/api/reservations/${reservation.id}/cancel`, { method: "PATCH" });
-            } catch { /* already cancelled or gone */ }
-            resolve("cancelled");
-          },
-        },
-      });
-      rzp.open();
-    });
   }
 
   async function updateReservation(id: number, action: "confirm"|"cancel") {
@@ -317,19 +237,16 @@ export default function Dashboard() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const selectedAvail = roomAvail.find((r) => String(r.id) === resForm.roomId);
-  const maxGuests = selectedAvail ? (selectedAvail.roomType === "SHARED" ? selectedAvail.availableCapacity : selectedAvail.capacity) : undefined;
-
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-50 text-zinc-900">
+    <div className="flex h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       {/* Sidebar overlay mobile */}
-      {sidebarOpen && <div className="fixed inset-0 z-20 bg-zinc-900/40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 z-20 bg-zinc-900/40 dark:bg-zinc-950/60 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* ── SIDEBAR ── */}
-      <aside className={`fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-zinc-200 bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="flex items-center gap-2.5 border-b border-zinc-100 px-4 py-4">
-          <div className="h-6 w-6 rounded bg-zinc-900 flex items-center justify-center flex-shrink-0">
-            <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <aside className={`fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-transform duration-200 lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex items-center gap-2.5 border-b border-zinc-100 dark:border-zinc-800 px-4 py-4">
+          <div className="h-6 w-6 rounded bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center flex-shrink-0">
+            <svg className="h-3.5 w-3.5 text-white dark:text-zinc-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l7 7 7-7M5 14l7 7 7-7" />
             </svg>
           </div>
@@ -343,8 +260,8 @@ export default function Dashboard() {
               onClick={() => { setNav(key as typeof nav); setSidebarOpen(false); }}
               className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
                 nav === key
-                  ? "bg-zinc-100 font-semibold text-zinc-900"
-                  : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+                  ? "bg-zinc-100 dark:bg-zinc-800 font-semibold text-zinc-900 dark:text-zinc-100"
+                  : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-zinc-100"
               }`}
             >
               <Icon className="h-4 w-4 flex-shrink-0" />
@@ -353,16 +270,20 @@ export default function Dashboard() {
           ))}
         </nav>
 
-        <div className="border-t border-zinc-100 p-3 space-y-1">
+        <div className="border-t border-zinc-100 dark:border-zinc-800 p-3 space-y-1">
           <div className="rounded-md px-3 py-2">
-            <p className="text-xs font-semibold text-zinc-900 truncate">{session.login}</p>
-            <p className="text-xs text-zinc-400 truncate">{session.email}</p>
-            <span className={`mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide ${session.role==="ADMIN"?"text-red-500":session.role==="HOST"?"text-amber-600":"text-emerald-600"}`}>{session.role}</span>
+            <p className="text-xs font-semibold truncate">{session.login}</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate">{session.email}</p>
+            <span className={`mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide ${session.role==="ADMIN"?"text-red-500":session.role==="HOST"?"text-amber-600 dark:text-amber-500":"text-emerald-600 dark:text-emerald-500"}`}>{session.role}</span>
           </div>
-          <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 transition-colors" onClick={() => router.push("/")}>
+          <div className="flex items-center gap-1 px-3 py-1">
+            <ThemeToggle />
+            <span className="text-xs text-zinc-400 dark:text-zinc-500">Motyw</span>
+          </div>
+          <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors" onClick={() => router.push("/")}>
             <ArrowLeftIcon className="h-3.5 w-3.5" /> Strona główna
           </button>
-          <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors" onClick={logout}>
+          <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors" onClick={logout}>
             <LogoutIcon className="h-3.5 w-3.5" /> Wyloguj
           </button>
         </div>
@@ -371,14 +292,14 @@ export default function Dashboard() {
       {/* ── MAIN ── */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
-        <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-6">
+        <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6">
           <div className="flex items-center gap-3">
-            <button className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 lg:hidden" onClick={() => setSidebarOpen(true)}>
+            <button className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 lg:hidden" onClick={() => setSidebarOpen(true)}>
               <MenuIcon className="h-5 w-5" />
             </button>
             <h1 className="text-sm font-semibold">{navItems.find((n) => n.key === nav)?.label ?? "Panel"}</h1>
           </div>
-          {msg && <p className={`text-xs font-medium rounded-md px-3 py-1.5 ${msgError ? "bg-red-50 text-red-600 border border-red-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>{msg}</p>}
+          {msg && <p className={`text-xs font-medium rounded-md px-3 py-1.5 ${msgError ? "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900" : "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900"}`}>{msg}</p>}
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">
@@ -386,103 +307,9 @@ export default function Dashboard() {
           {/* ══════ RESERVATIONS ══════ */}
           {nav === "reservations" && (
             <div className="max-w-5xl space-y-6">
-              {/* New reservation */}
-              <div className="rounded-xl border border-zinc-200 bg-white p-6">
-                <h2 className="mb-5 text-sm font-semibold text-zinc-900">Nowa rezerwacja</h2>
-                <form className="space-y-4" onSubmit={createReservation}>
-                  {/* Row 1 */}
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Schronisko</label>
-                      <select className="field" value={resForm.shelterId} onChange={(e) => {
-                        const sid = e.target.value;
-                        setResForm((c) => ({ ...c, shelterId: sid, roomId: "" }));
-                        setRoomAvail([]); setAvailLoaded(false);
-                        if (sid && resForm.startDate && resForm.endDate) checkAvail(sid, resForm.startDate, resForm.endDate);
-                      }}>
-                        <option value="">Wybierz schronisko</option>
-                        {shelters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Data przyjazdu</label>
-                      <input className="field" type="date" value={resForm.startDate} onChange={(e) => {
-                        const v = { ...resForm, startDate: e.target.value };
-                        setResForm(v);
-                        if (v.shelterId && v.startDate && v.endDate) checkAvail(v.shelterId, v.startDate, v.endDate);
-                      }} required />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Data wyjazdu</label>
-                      <input className="field" type="date" value={resForm.endDate} onChange={(e) => {
-                        const v = { ...resForm, endDate: e.target.value };
-                        setResForm(v);
-                        if (v.shelterId && v.startDate && v.endDate) checkAvail(v.shelterId, v.startDate, v.endDate);
-                      }} required />
-                    </div>
-                  </div>
-
-                  {/* Availability */}
-                  {availLoaded && (
-                    <div>
-                      <label className="mb-2 block text-xs font-medium text-zinc-500">Dostępność pokojów</label>
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {roomAvail.map((room) => (
-                          <button
-                            key={room.id}
-                            type="button"
-                            disabled={!room.available}
-                            onClick={() => room.available && setResForm((c) => ({ ...c, roomId: String(room.id) }))}
-                            className={`rounded-lg border p-3.5 text-left transition ${
-                              !room.available
-                                ? "cursor-not-allowed border-zinc-100 bg-zinc-50 opacity-50"
-                                : resForm.roomId === String(room.id)
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-zinc-200 bg-white hover:border-zinc-400"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-semibold">{room.name}</span>
-                              <span className={`text-[10px] font-semibold uppercase tracking-wide ${!room.available ? "text-red-400" : resForm.roomId === String(room.id) ? "text-zinc-300" : "text-emerald-600"}`}>
-                                {room.roomType === "SHARED"
-                                  ? (room.available ? `${room.availableCapacity} wolnych miejsc` : "Brak miejsc")
-                                  : (room.available ? "Wolny" : "Zajęty")}
-                              </span>
-                            </div>
-                            <p className={`mt-1 text-xs ${resForm.roomId === String(room.id) ? "text-zinc-300" : "text-zinc-400"}`}>
-                              {room.roomType === "SHARED" ? `${room.availableCapacity}/${room.capacity} miejsc · ${room.pricePerNight} zł/miejsce/noc` : `${room.capacity} miejsc · ${room.pricePerNight} zł/noc`}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Row 2 */}
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Goście</label>
-                      <input className="field" type="number" min="1" max={maxGuests} value={resForm.guestCount} onChange={(e) => setResForm((c) => ({ ...c, guestCount: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Wyżywienie</label>
-                      <select className="field" value={resForm.boardType} onChange={(e) => setResForm((c) => ({ ...c, boardType: e.target.value }))}>
-                        <option value="Bez wyżywienia">Bez wyżywienia</option>
-                        <option value="Śniadanie">Śniadanie (+20 zł/os/noc)</option>
-                        <option value="Śniadanie i kolacja">Śniadanie i kolacja (+45 zł/os/noc)</option>
-                        <option value="Pełne wyżywienie">Pełne wyżywienie (+65 zł/os/noc)</option>
-                      </select>
-                    </div>
-                    <div className="flex items-end">
-                      <button className="btn-primary w-full" type="submit">Zarezerwuj</button>
-                    </div>
-                  </div>
-                </form>
-              </div>
-
               {/* Table */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Twoje rezerwacje</h2>
                   <span className="text-xs text-zinc-400">{reservations.length} pozycji</span>
                 </div>
@@ -504,7 +331,7 @@ export default function Dashboard() {
                       </thead>
                       <tbody>
                         {reservations.map((r) => (
-                          <tr key={r.id} className="hover:bg-zinc-50/50">
+                          <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
                             <td className="table-cell font-medium">{r.userLogin}</td>
                             <td className="table-cell">
                               <span className="font-medium">{r.shelterName}</span>
@@ -535,13 +362,13 @@ export default function Dashboard() {
           {/* ══════ REVIEWS ══════ */}
           {nav === "reviews" && (
             <div className="max-w-4xl grid gap-6 lg:grid-cols-[1fr_320px]">
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+                <div className="border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="mb-3 text-sm font-semibold">Opinie</h2>
                   <div className="flex flex-wrap gap-1.5">
                     {shelters.map((s) => (
                       <button key={s.id} onClick={() => { setReviewShelterId(s.id); load<Review[]>(`/api/reviews/shelter/${s.id}`, setReviews); }}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${reviewShelterId === s.id ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 text-zinc-600 hover:border-zinc-400"}`}>
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${reviewShelterId === s.id ? "border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500"}`}>
                         {s.name}
                       </button>
                     ))}
@@ -550,7 +377,7 @@ export default function Dashboard() {
                 {reviews.length === 0 ? (
                   <div className="py-16 text-center text-sm text-zinc-400">Wybierz schronisko.</div>
                 ) : (
-                  <div className="divide-y divide-zinc-100">
+                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                     {reviews.map((r) => (
                       <div key={r.id} className="px-6 py-4">
                         <div className="flex items-start justify-between gap-3">
@@ -567,7 +394,7 @@ export default function Dashboard() {
                 )}
               </div>
 
-              <div className="rounded-xl border border-zinc-200 bg-white p-6 self-start">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 self-start">
                 <h2 className="mb-4 text-sm font-semibold">Dodaj opinię</h2>
                 <p className="mb-4 text-xs text-zinc-400">Wybrane: <strong className="text-zinc-700">{shelters.find((s) => s.id === reviewShelterId)?.name ?? "—"}</strong></p>
                 <form className="space-y-3" onSubmit={submitReview}>
@@ -592,7 +419,7 @@ export default function Dashboard() {
           {nav === "host" && (session.role === "HOST" || session.role === "ADMIN") && (
             <div className="max-w-4xl space-y-6">
               {/* Add shelter */}
-              <div className="rounded-xl border border-zinc-200 bg-white p-6">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
                 <h2 className="mb-4 text-sm font-semibold">Nowe schronisko</h2>
                 <form className="grid gap-3 sm:grid-cols-2" onSubmit={createHostShelter}>
                   <input className="field" value={hostShelterF.name} onChange={(e) => setHostShelterF((c) => ({...c,name:e.target.value}))} placeholder="Nazwa" required />
@@ -606,13 +433,13 @@ export default function Dashboard() {
               </div>
 
               {/* Manage */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+                <div className="border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="mb-3 text-sm font-semibold">Moje schroniska</h2>
                   <div className="flex flex-wrap gap-1.5">
                     {hostShelters.map((s) => (
                       <button key={s.id} onClick={() => setSelectedHostShelterId(s.id)}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${selectedHostShelterId===s.id ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 text-zinc-600 hover:border-zinc-400"}`}>
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${selectedHostShelterId===s.id ? "border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500"}`}>
                         {s.name}
                       </button>
                     ))}
@@ -623,10 +450,10 @@ export default function Dashboard() {
                   <div className="py-12 text-center text-sm text-zinc-400">Wybierz schronisko powyżej.</div>
                 ) : (
                   <div className="p-6">
-                    <div className="mb-5 flex gap-1 border-b border-zinc-100 pb-4">
+                    <div className="mb-5 flex gap-1 border-b border-zinc-100 dark:border-zinc-800 pb-4">
                       {(["rooms","employees","menu"] as const).map((t) => (
                         <button key={t} onClick={() => setHostSubTab(t)}
-                          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${hostSubTab===t ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50"}`}>
+                          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${hostSubTab===t ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
                           {t === "rooms" ? "Pokoje" : t === "employees" ? "Pracownicy" : "Menu"}
                         </button>
                       ))}
@@ -635,7 +462,7 @@ export default function Dashboard() {
                     {/* ROOMS */}
                     {hostSubTab === "rooms" && (
                       <>
-                        <div className="mb-4 divide-y divide-zinc-100 rounded-lg border border-zinc-100">
+                        <div className="mb-4 divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-800">
                           {rooms.length === 0 ? <p className="p-4 text-xs text-zinc-400">Brak pokojów.</p> : rooms.map((r) => (
                             <div key={r.id} className="flex items-center justify-between p-4">
                               <div>
@@ -662,7 +489,7 @@ export default function Dashboard() {
                     {/* EMPLOYEES */}
                     {hostSubTab === "employees" && (
                       <>
-                        <div className="mb-4 divide-y divide-zinc-100 rounded-lg border border-zinc-100">
+                        <div className="mb-4 divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-800">
                           {employees.length === 0 ? <p className="p-4 text-xs text-zinc-400">Brak pracowników.</p> : employees.map((e) => (
                             <div key={e.id} className="flex items-center justify-between p-4">
                               <div>
@@ -687,7 +514,7 @@ export default function Dashboard() {
                     {/* MENU */}
                     {hostSubTab === "menu" && (
                       <>
-                        <div className="mb-4 divide-y divide-zinc-100 rounded-lg border border-zinc-100">
+                        <div className="mb-4 divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-800">
                           {menuItems.length === 0 ? <p className="p-4 text-xs text-zinc-400">Brak pozycji w menu.</p> : menuItems.map((item) => (
                             <div key={item.id} className="flex items-center justify-between p-4">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -729,7 +556,7 @@ export default function Dashboard() {
                     { label: "Rezerwacje",  value: stats.reservations },
                     { label: "Przychód",    value: `${Math.round(stats.revenue).toLocaleString()} zł` },
                   ].map(({ label, value }) => (
-                    <div key={label} className="rounded-xl border border-zinc-200 bg-white p-5">
+                    <div key={label} className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
                       <p className="text-xs font-medium text-zinc-400">{label}</p>
                       <p className="mt-1 text-2xl font-bold tracking-tight">{value}</p>
                     </div>
@@ -739,7 +566,7 @@ export default function Dashboard() {
 
               {/* Chart + reset */}
               {chartData.length > 0 && (
-                <div className="rounded-xl border border-zinc-200 bg-white p-6">
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
                   <div className="mb-5 flex items-center justify-between">
                     <h2 className="text-sm font-semibold">Rezerwacje / miesiąc</h2>
                     <button className="btn-danger h-8 px-3 text-xs" onClick={resetDatabase}>Reset bazy</button>
@@ -757,8 +584,8 @@ export default function Dashboard() {
               )}
 
               {/* Employees */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Pracownicy</h2>
                   <button className="btn-secondary h-8 px-3 text-xs" onClick={() => load<Employee[]>("/api/admin/employees", setAllEmployees)}>Odśwież</button>
                 </div>
@@ -786,9 +613,9 @@ export default function Dashboard() {
                     </tr></thead>
                     <tbody>
                       {allEmployees.map((e) => (
-                        <tr key={e.id} className="hover:bg-zinc-50/50">
+                        <tr key={e.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
                           <td className="table-cell font-medium">{e.firstName} {e.lastName}</td>
-                          <td className="table-cell"><span className="rounded-full border border-zinc-100 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-600">{e.position}</span></td>
+                          <td className="table-cell"><span className="rounded-full border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-400">{e.position}</span></td>
                           <td className="table-cell text-zinc-500">{e.shelterName}</td>
                           <td className="table-cell text-zinc-400 text-xs">{e.phone || "—"}</td>
                           <td className="table-cell"><button className="btn-sm-danger" onClick={() => deleteAdminEmployee(e.shelterId, e.id)}>Usuń</button></td>
@@ -800,8 +627,8 @@ export default function Dashboard() {
               </div>
 
               {/* Users */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Użytkownicy</h2>
                   <span className="text-xs text-zinc-400">{users.length}</span>
                 </div>
@@ -815,7 +642,7 @@ export default function Dashboard() {
                     </tr></thead>
                     <tbody>
                       {users.map((u) => (
-                        <tr key={u.id} className="hover:bg-zinc-50/50">
+                        <tr key={u.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
                           <td className="table-cell font-medium">{u.login}</td>
                           <td className="table-cell text-zinc-500 text-xs">{u.email}</td>
                           <td className="table-cell">
@@ -836,8 +663,8 @@ export default function Dashboard() {
               </div>
 
               {/* Shelters */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Schroniska</h2>
                   <span className="text-xs text-zinc-400">{shelters.length}</span>
                 </div>
@@ -851,7 +678,7 @@ export default function Dashboard() {
                     </tr></thead>
                     <tbody>
                       {shelters.map((s) => (
-                        <tr key={s.id} className="hover:bg-zinc-50/50">
+                        <tr key={s.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
                           <td className="table-cell font-medium">{s.name}</td>
                           <td className="table-cell text-zinc-500 text-xs">{s.location}</td>
                           <td className="table-cell text-zinc-500">{s.beds}</td>
