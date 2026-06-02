@@ -121,6 +121,14 @@ public class ShelterService {
                                 .filter(reservation -> reservation.getCreatedAt().atZone(ZoneOffset.UTC).getMonthValue() == month)
                                 .count()))
                 .toList();
+        List<StatsResponse.MonthlyRevenue> monthlyRevenue = IntStream.rangeClosed(1, 12)
+                .mapToObj(month -> new StatsResponse.MonthlyRevenue(
+                        month,
+                        reservations.stream()
+                                .filter(reservation -> reservation.getCreatedAt().atZone(ZoneOffset.UTC).getMonthValue() == month)
+                                .map(Reservation::getTotalPrice)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add)))
+                .toList();
 
         return new ShelterStatsResponse(
                 shelter.getId(),
@@ -128,7 +136,8 @@ public class ShelterService {
                 reservations.size(),
                 pending,
                 revenue,
-                monthlyReservations);
+                monthlyReservations,
+                monthlyRevenue);
     }
 
     @Transactional

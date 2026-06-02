@@ -9,5 +9,6 @@ public record ShelterStatsResponse(
         long reservations,
         long pendingReservations,
         BigDecimal revenue,
-        List<StatsResponse.MonthlyCount> monthlyReservations) {
+        List<StatsResponse.MonthlyCount> monthlyReservations,
+        List<StatsResponse.MonthlyRevenue> monthlyRevenue) {
 }

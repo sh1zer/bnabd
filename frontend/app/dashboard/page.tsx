@@ -23,8 +23,8 @@ type Review      = { id: number; userId: number; userLogin: string; shelterId: n
 type UserRecord  = { id: number; login: string; email: string; role: "USER"|"HOST"|"ADMIN"; createdAt: string };
 type Employee    = { id: number; shelterId: number; shelterName: string; firstName: string; lastName: string; position: string; phone: string };
 type MenuItemT   = { id: number; shelterId: number; name: string; description: string; price: number; category: string };
-type Stats       = { users: number; shelters: number; rooms: number; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[] };
-type ShelterStats = { shelterId: number; shelterName: string; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[] };
+type Stats       = { users: number; shelters: number; rooms: number; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[]; monthlyRevenue: { month: number; revenue: number }[] };
+type ShelterStats = { shelterId: number; shelterName: string; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[]; monthlyRevenue: { month: number; revenue: number }[] };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,7 +78,9 @@ export default function Dashboard() {
 
   const hostShelters = useMemo(() => session?.role === "ADMIN" ? shelters : shelters.filter((s) => s.ownerId === session?.userId), [shelters, session]);
   const chartData    = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month-1)%12], Rez: d.count }));
+  const revenueData  = (stats?.monthlyRevenue ?? []).map((d) => ({ name: MONTHS[(d.month-1)%12], Przychód: Math.round(d.revenue) }));
   const hostChartData = (hostStats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month-1)%12], Rez: d.count }));
+  const hostRevenueData = (hostStats?.monthlyRevenue ?? []).map((d) => ({ name: MONTHS[(d.month-1)%12], Przychód: Math.round(d.revenue) }));
 
   useEffect(() => {
     const s = readSession();
@@ -672,14 +674,26 @@ export default function Dashboard() {
                           ))}
                         </div>
                         <form className="grid gap-3 sm:grid-cols-3" onSubmit={addRoom}>
-                          <input className="field" value={hostRoomF.name} onChange={(e) => setHostRoomF((c) => ({...c,name:e.target.value}))} placeholder="Nazwa pokoju" required />
-                          <input className="field" type="number" min="1" value={hostRoomF.capacity} onChange={(e) => setHostRoomF((c) => ({...c,capacity:e.target.value}))} placeholder="Miejsca" />
-                          <select className="field" value={hostRoomF.roomType} onChange={(e) => setHostRoomF((c) => ({...c,roomType:e.target.value}))}>
-                            <option value="WHOLE">Cały pokój</option>
-                            <option value="SHARED">Pokój wspólny</option>
-                          </select>
-                          <input className="field" type="number" min="1" value={hostRoomF.pricePerNight} onChange={(e) => setHostRoomF((c) => ({...c,pricePerNight:e.target.value}))} placeholder={hostRoomF.roomType === "SHARED" ? "Cena/miejsce/noc (zł)" : "Cena/noc (zł)"} />
-                          <button className="btn-primary sm:col-span-3" type="submit">Dodaj pokój</button>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-zinc-400">Nazwa pokoju</label>
+                            <input className="field" value={hostRoomF.name} onChange={(e) => setHostRoomF((c) => ({...c,name:e.target.value}))} placeholder="np. Pokój nr 1" required />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-zinc-400">Liczba miejsc</label>
+                            <input className="field" type="number" min="1" value={hostRoomF.capacity} onChange={(e) => setHostRoomF((c) => ({...c,capacity:e.target.value}))} placeholder="Miejsca" />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-zinc-400">Typ pokoju</label>
+                            <select className="field" value={hostRoomF.roomType} onChange={(e) => setHostRoomF((c) => ({...c,roomType:e.target.value}))}>
+                              <option value="WHOLE">Cały pokój</option>
+                              <option value="SHARED">Pokój wspólny</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-zinc-400">{hostRoomF.roomType === "SHARED" ? "Cena za miejsce/noc (zł)" : "Cena za noc (zł)"}</label>
+                            <input className="field" type="number" min="1" value={hostRoomF.pricePerNight} onChange={(e) => setHostRoomF((c) => ({...c,pricePerNight:e.target.value}))} placeholder="np. 50" />
+                          </div>
+                          <button className="btn-primary self-end sm:col-span-3" type="submit">Dodaj pokój</button>
                         </form>
                       </>
                     )}
@@ -767,6 +781,16 @@ export default function Dashboard() {
                               <Bar dataKey="Rez" name="Rezerwacje" fill="#e4e4e7" radius={[3,3,0,0]} />
                             </BarChart>
                           </ResponsiveContainer>
+                          <h3 className="mb-4 mt-6 text-sm font-semibold">Przychód / miesiąc</h3>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <BarChart data={hostRevenueData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+                              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip cursor={{ fill: "#27272a" }} formatter={(v) => [`${Number(v).toLocaleString()} zł`, "Przychód"]} contentStyle={{ fontSize: 12, borderRadius: 8, backgroundColor: "#18181b", border: "1px solid #3f3f46", color: "#fafafa", boxShadow: "0 1px 6px rgba(0,0,0,0.4)" }} />
+                              <Bar dataKey="Przychód" name="Przychód" fill="#fbbf24" radius={[3,3,0,0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
                         </>
                       )
                     )}
@@ -810,6 +834,22 @@ export default function Dashboard() {
                       <YAxis tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} allowDecimals={false} />
                       <Tooltip cursor={{ fill: "#27272a" }} contentStyle={{ fontSize: 12, borderRadius: 8, backgroundColor: "#18181b", border: "1px solid #3f3f46", color: "#fafafa", boxShadow: "0 1px 6px rgba(0,0,0,0.4)" }} />
                       <Bar dataKey="Rez" name="Rezerwacje" fill="#e4e4e7" radius={[3,3,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Revenue chart */}
+              {revenueData.length > 0 && (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+                  <h2 className="mb-5 text-sm font-semibold">Przychód / miesiąc</h2>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={revenueData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip cursor={{ fill: "#27272a" }} formatter={(v) => [`${Number(v).toLocaleString()} zł`, "Przychód"]} contentStyle={{ fontSize: 12, borderRadius: 8, backgroundColor: "#18181b", border: "1px solid #3f3f46", color: "#fafafa", boxShadow: "0 1px 6px rgba(0,0,0,0.4)" }} />
+                      <Bar dataKey="Przychód" name="Przychód" fill="#fbbf24" radius={[3,3,0,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
