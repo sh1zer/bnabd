@@ -39,7 +39,7 @@ function readSession(): Session | null {
 export default function Dashboard() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
-  const [nav, setNav] = useState<"reservations"|"reviews"|"host"|"admin">("reservations");
+  const [nav, setNav] = useState<"reservations"|"reviews"|"host"|"admin"|"profile">("reservations");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Data
@@ -72,6 +72,7 @@ export default function Dashboard() {
   const [empF, setEmpF]                   = useState({ firstName: "", lastName: "", position: "", phone: "" });
   const [adminEmpF, setAdminEmpF]         = useState({ firstName: "", lastName: "", position: "", phone: "" });
   const [menuF, setMenuF]                 = useState({ name: "", description: "", price: "20", category: "Śniadanie" });
+  const [profileF, setProfileF]           = useState({ email: "", currentPassword: "", newPassword: "" });
 
   const hostShelters = useMemo(() => session?.role === "ADMIN" ? shelters : shelters.filter((s) => s.ownerId === session?.userId), [shelters, session]);
   const chartData    = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month-1)%12], Rez: d.count }));
@@ -80,6 +81,7 @@ export default function Dashboard() {
     const s = readSession();
     if (!s) { router.push("/"); return; }
     setSession(s);
+    setProfileF((c) => ({ ...c, email: s.email }));
     init(s);
   }, []);
 
@@ -133,6 +135,24 @@ export default function Dashboard() {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   function logout() { localStorage.removeItem("bnabd_session"); router.push("/"); }
+
+  async function updateProfile(e: FormEvent) {
+    e.preventDefault();
+    await act(async () => {
+      const updated = await call<UserRecord>("/api/users/me", {
+        method: "PUT",
+        body: JSON.stringify({
+          email: profileF.email,
+          currentPassword: profileF.currentPassword || undefined,
+          newPassword: profileF.newPassword || undefined,
+        }),
+      });
+      const s = readSession();
+      if (s) { const next = { ...s, email: updated.email }; localStorage.setItem("bnabd_session", JSON.stringify(next)); setSession(next); }
+      setProfileF({ email: updated.email, currentPassword: "", newPassword: "" });
+      notify("Profil zaktualizowany.");
+    });
+  }
 
   async function act(fn: () => Promise<void>) {
     try { await fn(); } catch (e) { notify(e instanceof Error ? e.message : "Błąd.", true); }
@@ -313,6 +333,7 @@ export default function Dashboard() {
     { key: "reviews",      label: "Opinie",     icon: StarIcon },
     ...(session.role === "HOST" || session.role === "ADMIN" ? [{ key: "host",  label: "Zarządzanie", icon: BuildingIcon }] : []),
     ...(session.role === "ADMIN" ? [{ key: "admin", label: "Administracja", icon: CogIcon }] : []),
+    { key: "profile",      label: "Profil",     icon: UserIcon },
   ] as const;
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -864,6 +885,32 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {/* ══════ PROFILE ══════ */}
+          {nav === "profile" && (
+            <div className="max-w-lg space-y-6">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+                <h2 className="mb-1 text-sm font-semibold text-zinc-100">Profil</h2>
+                <p className="mb-5 text-xs text-zinc-400">Login <strong className="text-zinc-200">{session.login}</strong> · rola <strong className="text-zinc-200">{session.role}</strong></p>
+                <form className="space-y-4" onSubmit={updateProfile}>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-400">Email</label>
+                    <input className="field" type="email" value={profileF.email} onChange={(e) => setProfileF((c) => ({ ...c, email: e.target.value }))} required />
+                  </div>
+
+                  <div className="border-t border-zinc-800 pt-4">
+                    <p className="mb-3 text-xs font-medium text-zinc-400">Zmiana hasła <span className="text-zinc-500">(opcjonalnie)</span></p>
+                    <div className="space-y-3">
+                      <input className="field" type="password" value={profileF.currentPassword} onChange={(e) => setProfileF((c) => ({ ...c, currentPassword: e.target.value }))} placeholder="Aktualne hasło" autoComplete="current-password" />
+                      <input className="field" type="password" minLength={6} value={profileF.newPassword} onChange={(e) => setProfileF((c) => ({ ...c, newPassword: e.target.value }))} placeholder="Nowe hasło (min. 6 znaków)" autoComplete="new-password" />
+                    </div>
+                  </div>
+
+                  <button className="btn-primary w-full" type="submit">Zapisz zmiany</button>
+                </form>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
@@ -892,6 +939,9 @@ function LogoutIcon({ className }: { className?: string }) {
 }
 function MenuIcon({ className }: { className?: string }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>;
+}
+function UserIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="8" r="4"/><path strokeLinecap="round" strokeLinejoin="round" d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>;
 }
 
 function RStatus({ status }: { status: Reservation["status"] }) {
