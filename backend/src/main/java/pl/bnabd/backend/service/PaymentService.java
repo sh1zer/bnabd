@@ -37,19 +37,19 @@ public class PaymentService {
         try {
             RazorpayClient client = new RazorpayClient(keyId, keySecret);
 
-            // Razorpay expects amount in smallest currency unit (paise for INR)
-            long amountPaise = reservation.getTotalPrice()
+            // Razorpay expects amount in smallest currency unit (grosze for PLN)
+            long amountGrosze = reservation.getTotalPrice()
                     .multiply(java.math.BigDecimal.valueOf(100))
                     .longValue();
 
             JSONObject options = new JSONObject();
-            options.put("amount", amountPaise);
-            options.put("currency", "INR");
+            options.put("amount", amountGrosze);
+            options.put("currency", "PLN");
             options.put("receipt", "res_" + reservationId);
             options.put("payment_capture", 1);
 
             Order order = client.orders.create(options);
-            return new PaymentOrderResponse(order.get("id"), amountPaise, "INR", keyId);
+            return new PaymentOrderResponse(order.get("id"), amountGrosze, "PLN", keyId);
         } catch (Exception e) {
             throw new RuntimeException("Nie udało się utworzyć zamówienia płatności: " + e.getMessage(), e);
         }
