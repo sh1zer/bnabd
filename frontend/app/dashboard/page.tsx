@@ -321,15 +321,15 @@ export default function Dashboard() {
   const maxGuests = selectedAvail ? (selectedAvail.roomType === "SHARED" ? selectedAvail.availableCapacity : selectedAvail.capacity) : undefined;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-50 text-zinc-900">
+    <div className="dark flex h-screen overflow-hidden bg-zinc-950 text-zinc-100">
       {/* Sidebar overlay mobile */}
-      {sidebarOpen && <div className="fixed inset-0 z-20 bg-zinc-900/40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 z-20 bg-black/60 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* ── SIDEBAR ── */}
-      <aside className={`fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-zinc-200 bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="flex items-center gap-2.5 border-b border-zinc-100 px-4 py-4">
-          <div className="h-6 w-6 rounded bg-zinc-900 flex items-center justify-center flex-shrink-0">
-            <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <aside className={`fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-zinc-800 bg-zinc-900 transition-transform duration-200 lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex items-center gap-2.5 border-b border-zinc-800 px-4 py-4">
+          <div className="h-6 w-6 rounded bg-zinc-100 flex items-center justify-center flex-shrink-0">
+            <svg className="h-3.5 w-3.5 text-zinc-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l7 7 7-7M5 14l7 7 7-7" />
             </svg>
           </div>
@@ -343,8 +343,8 @@ export default function Dashboard() {
               onClick={() => { setNav(key as typeof nav); setSidebarOpen(false); }}
               className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
                 nav === key
-                  ? "bg-zinc-100 font-semibold text-zinc-900"
-                  : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+                  ? "bg-zinc-800 font-semibold text-zinc-100"
+                  : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100"
               }`}
             >
               <Icon className="h-4 w-4 flex-shrink-0" />
@@ -353,16 +353,16 @@ export default function Dashboard() {
           ))}
         </nav>
 
-        <div className="border-t border-zinc-100 p-3 space-y-1">
+        <div className="border-t border-zinc-800 p-3 space-y-1">
           <div className="rounded-md px-3 py-2">
-            <p className="text-xs font-semibold text-zinc-900 truncate">{session.login}</p>
-            <p className="text-xs text-zinc-400 truncate">{session.email}</p>
-            <span className={`mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide ${session.role==="ADMIN"?"text-red-500":session.role==="HOST"?"text-amber-600":"text-emerald-600"}`}>{session.role}</span>
+            <p className="text-xs font-semibold text-zinc-100 truncate">{session.login}</p>
+            <p className="text-xs text-zinc-500 truncate">{session.email}</p>
+            <span className={`mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide ${session.role==="ADMIN"?"text-red-400":session.role==="HOST"?"text-amber-500":"text-emerald-500"}`}>{session.role}</span>
           </div>
-          <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 transition-colors" onClick={() => router.push("/")}>
+          <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors" onClick={() => router.push("/")}>
             <ArrowLeftIcon className="h-3.5 w-3.5" /> Strona główna
           </button>
-          <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors" onClick={logout}>
+          <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-red-400 hover:bg-red-950/40 transition-colors" onClick={logout}>
             <LogoutIcon className="h-3.5 w-3.5" /> Wyloguj
           </button>
         </div>
@@ -371,14 +371,14 @@ export default function Dashboard() {
       {/* ── MAIN ── */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
-        <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-6">
+        <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-900 px-6">
           <div className="flex items-center gap-3">
-            <button className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 lg:hidden" onClick={() => setSidebarOpen(true)}>
+            <button className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 lg:hidden" onClick={() => setSidebarOpen(true)}>
               <MenuIcon className="h-5 w-5" />
             </button>
             <h1 className="text-sm font-semibold">{navItems.find((n) => n.key === nav)?.label ?? "Panel"}</h1>
           </div>
-          {msg && <p className={`text-xs font-medium rounded-md px-3 py-1.5 ${msgError ? "bg-red-50 text-red-600 border border-red-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>{msg}</p>}
+          {msg && <p className={`text-xs font-medium rounded-md px-3 py-1.5 ${msgError ? "bg-red-950/40 text-red-400 border border-red-900/50" : "bg-emerald-950/40 text-emerald-400 border border-emerald-900/50"}`}>{msg}</p>}
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">
@@ -387,13 +387,13 @@ export default function Dashboard() {
           {nav === "reservations" && (
             <div className="max-w-5xl space-y-6">
               {/* New reservation */}
-              <div className="rounded-xl border border-zinc-200 bg-white p-6">
-                <h2 className="mb-5 text-sm font-semibold text-zinc-900">Nowa rezerwacja</h2>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+                <h2 className="mb-5 text-sm font-semibold text-zinc-100">Nowa rezerwacja</h2>
                 <form className="space-y-4" onSubmit={createReservation}>
                   {/* Row 1 */}
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Schronisko</label>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-400">Schronisko</label>
                       <select className="field" value={resForm.shelterId} onChange={(e) => {
                         const sid = e.target.value;
                         setResForm((c) => ({ ...c, shelterId: sid, roomId: "" }));
@@ -405,7 +405,7 @@ export default function Dashboard() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Data przyjazdu</label>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-400">Data przyjazdu</label>
                       <input className="field" type="date" value={resForm.startDate} onChange={(e) => {
                         const v = { ...resForm, startDate: e.target.value };
                         setResForm(v);
@@ -413,7 +413,7 @@ export default function Dashboard() {
                       }} required />
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Data wyjazdu</label>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-400">Data wyjazdu</label>
                       <input className="field" type="date" value={resForm.endDate} onChange={(e) => {
                         const v = { ...resForm, endDate: e.target.value };
                         setResForm(v);
@@ -425,7 +425,7 @@ export default function Dashboard() {
                   {/* Availability */}
                   {availLoaded && (
                     <div>
-                      <label className="mb-2 block text-xs font-medium text-zinc-500">Dostępność pokojów</label>
+                      <label className="mb-2 block text-xs font-medium text-zinc-400">Dostępność pokojów</label>
                       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {roomAvail.map((room) => (
                           <button
@@ -435,21 +435,21 @@ export default function Dashboard() {
                             onClick={() => room.available && setResForm((c) => ({ ...c, roomId: String(room.id) }))}
                             className={`rounded-lg border p-3.5 text-left transition ${
                               !room.available
-                                ? "cursor-not-allowed border-zinc-100 bg-zinc-50 opacity-50"
+                                ? "cursor-not-allowed border-zinc-800 bg-zinc-900/50 opacity-50"
                                 : resForm.roomId === String(room.id)
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-zinc-200 bg-white hover:border-zinc-400"
+                                ? "border-zinc-100 bg-zinc-100 text-zinc-900"
+                                : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-sm font-semibold">{room.name}</span>
-                              <span className={`text-[10px] font-semibold uppercase tracking-wide ${!room.available ? "text-red-400" : resForm.roomId === String(room.id) ? "text-zinc-300" : "text-emerald-600"}`}>
+                              <span className={`text-[10px] font-semibold uppercase tracking-wide ${!room.available ? "text-red-400" : resForm.roomId === String(room.id) ? "text-zinc-600" : "text-emerald-500"}`}>
                                 {room.roomType === "SHARED"
                                   ? (room.available ? `${room.availableCapacity} wolnych miejsc` : "Brak miejsc")
                                   : (room.available ? "Wolny" : "Zajęty")}
                               </span>
                             </div>
-                            <p className={`mt-1 text-xs ${resForm.roomId === String(room.id) ? "text-zinc-300" : "text-zinc-400"}`}>
+                            <p className={`mt-1 text-xs ${resForm.roomId === String(room.id) ? "text-zinc-600" : "text-zinc-500"}`}>
                               {room.roomType === "SHARED" ? `${room.availableCapacity}/${room.capacity} miejsc · ${room.pricePerNight} zł/miejsce/noc` : `${room.capacity} miejsc · ${room.pricePerNight} zł/noc`}
                             </p>
                           </button>
@@ -461,11 +461,11 @@ export default function Dashboard() {
                   {/* Row 2 */}
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Goście</label>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-400">Goście</label>
                       <input className="field" type="number" min="1" max={maxGuests} value={resForm.guestCount} onChange={(e) => setResForm((c) => ({ ...c, guestCount: e.target.value }))} />
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-zinc-500">Wyżywienie</label>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-400">Wyżywienie</label>
                       <select className="field" value={resForm.boardType} onChange={(e) => setResForm((c) => ({ ...c, boardType: e.target.value }))}>
                         <option value="Bez wyżywienia">Bez wyżywienia</option>
                         <option value="Śniadanie">Śniadanie (+20 zł/os/noc)</option>
@@ -481,8 +481,8 @@ export default function Dashboard() {
               </div>
 
               {/* Table */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Twoje rezerwacje</h2>
                   <span className="text-xs text-zinc-400">{reservations.length} pozycji</span>
                 </div>
@@ -504,7 +504,7 @@ export default function Dashboard() {
                       </thead>
                       <tbody>
                         {reservations.map((r) => (
-                          <tr key={r.id} className="hover:bg-zinc-50/50">
+                          <tr key={r.id} className="hover:bg-zinc-800/40">
                             <td className="table-cell font-medium">{r.userLogin}</td>
                             <td className="table-cell">
                               <span className="font-medium">{r.shelterName}</span>
@@ -535,13 +535,13 @@ export default function Dashboard() {
           {/* ══════ REVIEWS ══════ */}
           {nav === "reviews" && (
             <div className="max-w-4xl grid gap-6 lg:grid-cols-[1fr_320px]">
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                <div className="border-b border-zinc-800 px-6 py-4">
                   <h2 className="mb-3 text-sm font-semibold">Opinie</h2>
                   <div className="flex flex-wrap gap-1.5">
                     {shelters.map((s) => (
                       <button key={s.id} onClick={() => { setReviewShelterId(s.id); load<Review[]>(`/api/reviews/shelter/${s.id}`, setReviews); }}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${reviewShelterId === s.id ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 text-zinc-600 hover:border-zinc-400"}`}>
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${reviewShelterId === s.id ? "border-zinc-100 bg-zinc-100 text-zinc-900" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"}`}>
                         {s.name}
                       </button>
                     ))}
@@ -550,7 +550,7 @@ export default function Dashboard() {
                 {reviews.length === 0 ? (
                   <div className="py-16 text-center text-sm text-zinc-400">Wybierz schronisko.</div>
                 ) : (
-                  <div className="divide-y divide-zinc-100">
+                  <div className="divide-y divide-zinc-800">
                     {reviews.map((r) => (
                       <div key={r.id} className="px-6 py-4">
                         <div className="flex items-start justify-between gap-3">
@@ -558,27 +558,27 @@ export default function Dashboard() {
                             <span className="text-sm font-semibold">{r.userLogin}</span>
                             <span className="ml-2 text-xs text-zinc-400">{r.createdAt?.slice(0,10)}</span>
                           </div>
-                          <div className="text-xs text-amber-500 font-semibold">{"★".repeat(r.rating)}<span className="text-zinc-200">{"★".repeat(5-r.rating)}</span></div>
+                          <div className="text-xs text-amber-400 font-semibold">{"★".repeat(r.rating)}<span className="text-zinc-700">{"★".repeat(5-r.rating)}</span></div>
                         </div>
-                        <p className="mt-1.5 text-sm text-zinc-600 leading-relaxed">{r.comment}</p>
+                        <p className="mt-1.5 text-sm text-zinc-300 leading-relaxed">{r.comment}</p>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="rounded-xl border border-zinc-200 bg-white p-6 self-start">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 self-start">
                 <h2 className="mb-4 text-sm font-semibold">Dodaj opinię</h2>
-                <p className="mb-4 text-xs text-zinc-400">Wybrane: <strong className="text-zinc-700">{shelters.find((s) => s.id === reviewShelterId)?.name ?? "—"}</strong></p>
+                <p className="mb-4 text-xs text-zinc-400">Wybrane: <strong className="text-zinc-200">{shelters.find((s) => s.id === reviewShelterId)?.name ?? "—"}</strong></p>
                 <form className="space-y-3" onSubmit={submitReview}>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-zinc-500">Ocena</label>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-400">Ocena</label>
                     <select className="field" value={reviewRating} onChange={(e) => setReviewRating(e.target.value)}>
                       {[5,4,3,2,1].map((n) => <option key={n} value={n}>{n} {"★".repeat(n)}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-zinc-500">Komentarz</label>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-400">Komentarz</label>
                     <textarea className="field h-24 resize-none py-2" value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder="Twoja opinia..." required />
                   </div>
                   <button className="btn-primary w-full" type="submit">Dodaj</button>
@@ -592,7 +592,7 @@ export default function Dashboard() {
           {nav === "host" && (session.role === "HOST" || session.role === "ADMIN") && (
             <div className="max-w-4xl space-y-6">
               {/* Add shelter */}
-              <div className="rounded-xl border border-zinc-200 bg-white p-6">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
                 <h2 className="mb-4 text-sm font-semibold">Nowe schronisko</h2>
                 <form className="grid gap-3 sm:grid-cols-2" onSubmit={createHostShelter}>
                   <input className="field" value={hostShelterF.name} onChange={(e) => setHostShelterF((c) => ({...c,name:e.target.value}))} placeholder="Nazwa" required />
@@ -606,13 +606,13 @@ export default function Dashboard() {
               </div>
 
               {/* Manage */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                <div className="border-b border-zinc-800 px-6 py-4">
                   <h2 className="mb-3 text-sm font-semibold">Moje schroniska</h2>
                   <div className="flex flex-wrap gap-1.5">
                     {hostShelters.map((s) => (
                       <button key={s.id} onClick={() => setSelectedHostShelterId(s.id)}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${selectedHostShelterId===s.id ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 text-zinc-600 hover:border-zinc-400"}`}>
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${selectedHostShelterId===s.id ? "border-zinc-100 bg-zinc-100 text-zinc-900" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"}`}>
                         {s.name}
                       </button>
                     ))}
@@ -623,10 +623,10 @@ export default function Dashboard() {
                   <div className="py-12 text-center text-sm text-zinc-400">Wybierz schronisko powyżej.</div>
                 ) : (
                   <div className="p-6">
-                    <div className="mb-5 flex gap-1 border-b border-zinc-100 pb-4">
+                    <div className="mb-5 flex gap-1 border-b border-zinc-800 pb-4">
                       {(["rooms","employees","menu"] as const).map((t) => (
                         <button key={t} onClick={() => setHostSubTab(t)}
-                          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${hostSubTab===t ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50"}`}>
+                          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${hostSubTab===t ? "bg-zinc-100 text-zinc-900" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"}`}>
                           {t === "rooms" ? "Pokoje" : t === "employees" ? "Pracownicy" : "Menu"}
                         </button>
                       ))}
@@ -635,7 +635,7 @@ export default function Dashboard() {
                     {/* ROOMS */}
                     {hostSubTab === "rooms" && (
                       <>
-                        <div className="mb-4 divide-y divide-zinc-100 rounded-lg border border-zinc-100">
+                        <div className="mb-4 divide-y divide-zinc-800 rounded-lg border border-zinc-800">
                           {rooms.length === 0 ? <p className="p-4 text-xs text-zinc-400">Brak pokojów.</p> : rooms.map((r) => (
                             <div key={r.id} className="flex items-center justify-between p-4">
                               <div>
@@ -662,12 +662,12 @@ export default function Dashboard() {
                     {/* EMPLOYEES */}
                     {hostSubTab === "employees" && (
                       <>
-                        <div className="mb-4 divide-y divide-zinc-100 rounded-lg border border-zinc-100">
+                        <div className="mb-4 divide-y divide-zinc-800 rounded-lg border border-zinc-800">
                           {employees.length === 0 ? <p className="p-4 text-xs text-zinc-400">Brak pracowników.</p> : employees.map((e) => (
                             <div key={e.id} className="flex items-center justify-between p-4">
                               <div>
                                 <span className="text-sm font-medium">{e.firstName} {e.lastName}</span>
-                                <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600">{e.position}</span>
+                                <span className="ml-2 rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-zinc-300">{e.position}</span>
                                 {e.phone && <span className="ml-2 text-xs text-zinc-400">{e.phone}</span>}
                               </div>
                               <button className="btn-sm-danger" onClick={() => deleteEmployee(selectedHostShelterId, e.id)}>Usuń</button>
@@ -687,12 +687,12 @@ export default function Dashboard() {
                     {/* MENU */}
                     {hostSubTab === "menu" && (
                       <>
-                        <div className="mb-4 divide-y divide-zinc-100 rounded-lg border border-zinc-100">
+                        <div className="mb-4 divide-y divide-zinc-800 rounded-lg border border-zinc-800">
                           {menuItems.length === 0 ? <p className="p-4 text-xs text-zinc-400">Brak pozycji w menu.</p> : menuItems.map((item) => (
                             <div key={item.id} className="flex items-center justify-between p-4">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-sm font-medium">{item.name}</span>
-                                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-500">{item.category}</span>
+                                <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-400">{item.category}</span>
                                 {item.description && <span className="text-xs text-zinc-400">{item.description}</span>}
                                 <span className="text-sm font-semibold">{item.price} zł</span>
                               </div>
@@ -729,7 +729,7 @@ export default function Dashboard() {
                     { label: "Rezerwacje",  value: stats.reservations },
                     { label: "Przychód",    value: `${Math.round(stats.revenue).toLocaleString()} zł` },
                   ].map(({ label, value }) => (
-                    <div key={label} className="rounded-xl border border-zinc-200 bg-white p-5">
+                    <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
                       <p className="text-xs font-medium text-zinc-400">{label}</p>
                       <p className="mt-1 text-2xl font-bold tracking-tight">{value}</p>
                     </div>
@@ -739,30 +739,30 @@ export default function Dashboard() {
 
               {/* Chart + reset */}
               {chartData.length > 0 && (
-                <div className="rounded-xl border border-zinc-200 bg-white p-6">
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
                   <div className="mb-5 flex items-center justify-between">
                     <h2 className="text-sm font-semibold">Rezerwacje / miesiąc</h2>
                     <button className="btn-danger h-8 px-3 text-xs" onClick={resetDatabase}>Reset bazy</button>
                   </div>
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
                       <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                      <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e4e4e7", boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }} />
-                      <Bar dataKey="Rez" name="Rezerwacje" fill="#18181b" radius={[3,3,0,0]} />
+                      <Tooltip cursor={{ fill: "#27272a" }} contentStyle={{ fontSize: 12, borderRadius: 8, backgroundColor: "#18181b", border: "1px solid #3f3f46", color: "#fafafa", boxShadow: "0 1px 6px rgba(0,0,0,0.4)" }} />
+                      <Bar dataKey="Rez" name="Rezerwacje" fill="#e4e4e7" radius={[3,3,0,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               )}
 
               {/* Employees */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Pracownicy</h2>
                   <button className="btn-secondary h-8 px-3 text-xs" onClick={() => load<Employee[]>("/api/admin/employees", setAllEmployees)}>Odśwież</button>
                 </div>
-                <div className="border-b border-zinc-100 p-5">
+                <div className="border-b border-zinc-800 p-5">
                   <form className="grid gap-3 sm:grid-cols-3" onSubmit={addAdminEmployee}>
                     <select className="field" value={adminEmpShelterId} onChange={(e) => setAdminEmpShelterId(e.target.value)} required>
                       <option value="">Wybierz schronisko</option>
@@ -786,9 +786,9 @@ export default function Dashboard() {
                     </tr></thead>
                     <tbody>
                       {allEmployees.map((e) => (
-                        <tr key={e.id} className="hover:bg-zinc-50/50">
+                        <tr key={e.id} className="hover:bg-zinc-800/40">
                           <td className="table-cell font-medium">{e.firstName} {e.lastName}</td>
-                          <td className="table-cell"><span className="rounded-full border border-zinc-100 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-600">{e.position}</span></td>
+                          <td className="table-cell"><span className="rounded-full border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">{e.position}</span></td>
                           <td className="table-cell text-zinc-500">{e.shelterName}</td>
                           <td className="table-cell text-zinc-400 text-xs">{e.phone || "—"}</td>
                           <td className="table-cell"><button className="btn-sm-danger" onClick={() => deleteAdminEmployee(e.shelterId, e.id)}>Usuń</button></td>
@@ -800,8 +800,8 @@ export default function Dashboard() {
               </div>
 
               {/* Users */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Użytkownicy</h2>
                   <span className="text-xs text-zinc-400">{users.length}</span>
                 </div>
@@ -815,11 +815,11 @@ export default function Dashboard() {
                     </tr></thead>
                     <tbody>
                       {users.map((u) => (
-                        <tr key={u.id} className="hover:bg-zinc-50/50">
+                        <tr key={u.id} className="hover:bg-zinc-800/40">
                           <td className="table-cell font-medium">{u.login}</td>
                           <td className="table-cell text-zinc-500 text-xs">{u.email}</td>
                           <td className="table-cell">
-                            <select className="rounded border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-700 focus:outline-none" value={u.role} onChange={(e) => changeRole(u.id, e.target.value)}>
+                            <select className="rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs font-medium text-zinc-200 focus:outline-none" value={u.role} onChange={(e) => changeRole(u.id, e.target.value)}>
                               <option value="USER">USER</option>
                               <option value="HOST">HOST</option>
                               <option value="ADMIN">ADMIN</option>
@@ -836,8 +836,8 @@ export default function Dashboard() {
               </div>
 
               {/* Shelters */}
-              <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Schroniska</h2>
                   <span className="text-xs text-zinc-400">{shelters.length}</span>
                 </div>
@@ -851,7 +851,7 @@ export default function Dashboard() {
                     </tr></thead>
                     <tbody>
                       {shelters.map((s) => (
-                        <tr key={s.id} className="hover:bg-zinc-50/50">
+                        <tr key={s.id} className="hover:bg-zinc-800/40">
                           <td className="table-cell font-medium">{s.name}</td>
                           <td className="table-cell text-zinc-500 text-xs">{s.location}</td>
                           <td className="table-cell text-zinc-500">{s.beds}</td>
