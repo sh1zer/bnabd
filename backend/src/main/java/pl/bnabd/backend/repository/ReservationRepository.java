@@ -13,6 +13,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     List<Reservation> findByRoom_Shelter_Owner_IdOrderByCreatedAtDesc(Long ownerId);
 
+    List<Reservation> findByRoom_Shelter_Id(Long shelterId);
+
     void deleteByRoomId(Long roomId);
 
     void deleteByUserId(Long userId);

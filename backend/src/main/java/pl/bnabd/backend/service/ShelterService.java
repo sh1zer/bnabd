@@ -1,6 +1,10 @@
 package pl.bnabd.backend.service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.bnabd.backend.dto.RoomAvailabilityDto;
@@ -8,10 +12,13 @@ import pl.bnabd.backend.dto.RoomDto;
 import pl.bnabd.backend.dto.RoomRequest;
 import pl.bnabd.backend.dto.ShelterDto;
 import pl.bnabd.backend.dto.ShelterRequest;
+import pl.bnabd.backend.dto.ShelterStatsResponse;
+import pl.bnabd.backend.dto.StatsResponse;
 import pl.bnabd.backend.exception.ForbiddenException;
 import pl.bnabd.backend.exception.NotFoundException;
-import java.time.LocalDate;
 import pl.bnabd.backend.model.AppUser;
+import pl.bnabd.backend.model.Reservation;
+import pl.bnabd.backend.model.ReservationStatus;
 import pl.bnabd.backend.model.Room;
 import pl.bnabd.backend.model.RoomType;
 import pl.bnabd.backend.model.Shelter;
@@ -94,6 +101,43 @@ public class ShelterService {
                             remaining);
                 })
                 .toList();
+    }
+
+    public ShelterStatsResponse shelterStats(long shelterId, AppUser currentUser) {
+        Shelter shelter = findEntityById(shelterId);
+        assertCanManage(shelter, currentUser);
+
+        List<Reservation> reservations = reservationRepository.findByRoom_Shelter_Id(shelterId);
+        BigDecimal revenue = reservations.stream()
+                .map(Reservation::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        long pending = reservations.stream()
+                .filter(reservation -> reservation.getStatus() == ReservationStatus.PENDING)
+                .count();
+        List<StatsResponse.MonthlyCount> monthlyReservations = IntStream.rangeClosed(1, 12)
+                .mapToObj(month -> new StatsResponse.MonthlyCount(
+                        month,
+                        reservations.stream()
+                                .filter(reservation -> reservation.getCreatedAt().atZone(ZoneOffset.UTC).getMonthValue() == month)
+                                .count()))
+                .toList();
+        List<StatsResponse.MonthlyRevenue> monthlyRevenue = IntStream.rangeClosed(1, 12)
+                .mapToObj(month -> new StatsResponse.MonthlyRevenue(
+                        month,
+                        reservations.stream()
+                                .filter(reservation -> reservation.getCreatedAt().atZone(ZoneOffset.UTC).getMonthValue() == month)
+                                .map(Reservation::getTotalPrice)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add)))
+                .toList();
+
+        return new ShelterStatsResponse(
+                shelter.getId(),
+                shelter.getName(),
+                reservations.size(),
+                pending,
+                revenue,
+                monthlyReservations,
+                monthlyRevenue);
     }
 
     @Transactional

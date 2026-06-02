@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ThemeToggle } from "../components/ThemeProvider";
+import { ThemeToggle, useTheme } from "../components/ThemeProvider";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -16,7 +16,8 @@ type Review      = { id: number; userId: number; userLogin: string; shelterId: n
 type UserRecord  = { id: number; login: string; email: string; role: "USER"|"HOST"|"ADMIN"; createdAt: string };
 type Employee    = { id: number; shelterId: number; shelterName: string; firstName: string; lastName: string; position: string; phone: string };
 type MenuItemT   = { id: number; shelterId: number; name: string; description: string; price: number; category: string };
-type Stats       = { users: number; shelters: number; rooms: number; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[] };
+type Stats       = { users: number; shelters: number; rooms: number; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[]; monthlyRevenue: { month: number; revenue: number }[] };
+type ShelterStats = { shelterId: number; shelterName: string; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[]; monthlyRevenue: { month: number; revenue: number }[] };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -31,8 +32,9 @@ function readSession(): Session | null {
 
 export default function Dashboard() {
   const router = useRouter();
+  const { theme } = useTheme();
   const [session, setSession] = useState<Session | null>(null);
-  const [nav, setNav] = useState<"reservations"|"reviews"|"host"|"admin">("reservations");
+  const [nav, setNav] = useState<"reservations"|"reviews"|"host"|"admin"|"profile">("reservations");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Data
@@ -49,7 +51,8 @@ export default function Dashboard() {
   // UI state
   const [reviewShelterId, setReviewShelterId]             = useState<number | null>(null);
   const [selectedHostShelterId, setSelectedHostShelterId] = useState<number | null>(null);
-  const [hostSubTab, setHostSubTab]                       = useState<"rooms"|"employees"|"menu">("rooms");
+  const [hostSubTab, setHostSubTab]                       = useState<"rooms"|"employees"|"menu"|"stats">("rooms");
+  const [hostStats, setHostStats]                         = useState<ShelterStats | null>(null);
   const [adminEmpShelterId, setAdminEmpShelterId]         = useState("");
   const [msg, setMsg]                                     = useState("");
   const [msgError, setMsgError]                           = useState(false);
@@ -62,14 +65,27 @@ export default function Dashboard() {
   const [empF, setEmpF]                   = useState({ firstName: "", lastName: "", position: "", phone: "" });
   const [adminEmpF, setAdminEmpF]         = useState({ firstName: "", lastName: "", position: "", phone: "" });
   const [menuF, setMenuF]                 = useState({ name: "", description: "", price: "20", category: "Śniadanie" });
+  const [profileF, setProfileF]           = useState({ email: "", currentPassword: "", newPassword: "" });
 
-  const hostShelters = useMemo(() => session?.role === "ADMIN" ? shelters : shelters.filter((s) => s.ownerId === session?.userId), [shelters, session]);
-  const chartData    = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
+  const hostShelters  = useMemo(() => session?.role === "ADMIN" ? shelters : shelters.filter((s) => s.ownerId === session?.userId), [shelters, session]);
+  const chartData     = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
+  const revenueData   = (stats?.monthlyRevenue ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Przychód: Math.round(d.revenue) }));
+  const hostChartData = (hostStats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
+  const hostRevData   = (hostStats?.monthlyRevenue ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Przychód: Math.round(d.revenue) }));
+
+  // chart tooltip style adapts to current theme
+  const tooltipStyle = theme === "dark"
+    ? { fontSize: 12, borderRadius: 8, backgroundColor: "#18181b", border: "1px solid #3f3f46", color: "#fafafa", boxShadow: "0 1px 6px rgba(0,0,0,0.4)" }
+    : { fontSize: 12, borderRadius: 8, backgroundColor: "#ffffff", border: "1px solid #e4e4e7", color: "#18181b", boxShadow: "0 1px 6px rgba(0,0,0,0.08)" };
+  const gridColor  = theme === "dark" ? "#27272a" : "#f4f4f5";
+  const tickColor  = theme === "dark" ? "#a1a1aa" : "#71717a";
+  const cursorFill = theme === "dark" ? "#27272a" : "#f4f4f5";
 
   useEffect(() => {
     const s = readSession();
     if (!s) { router.push("/"); return; }
     setSession(s);
+    setProfileF((c) => ({ ...c, email: s.email }));
     init(s);
   }, []);
 
@@ -78,6 +94,7 @@ export default function Dashboard() {
       load<Room[]>(`/api/shelters/${selectedHostShelterId}/rooms`, setRooms);
       load<Employee[]>(`/api/shelters/${selectedHostShelterId}/employees`, setEmployees);
       load<MenuItemT[]>(`/api/shelters/${selectedHostShelterId}/menu`, setMenuItems);
+      call<ShelterStats>(`/api/shelters/${selectedHostShelterId}/stats`).then(setHostStats).catch(() => setHostStats(null));
     }
   }, [selectedHostShelterId]);
 
@@ -116,6 +133,20 @@ export default function Dashboard() {
 
   async function act(fn: () => Promise<void>) {
     try { await fn(); } catch (e) { notify(e instanceof Error ? e.message : "Błąd.", true); }
+  }
+
+  async function updateProfile(e: FormEvent) {
+    e.preventDefault();
+    await act(async () => {
+      const updated = await call<UserRecord>("/api/users/me", {
+        method: "PUT",
+        body: JSON.stringify({ email: profileF.email, currentPassword: profileF.currentPassword || undefined, newPassword: profileF.newPassword || undefined }),
+      });
+      const s = readSession();
+      if (s) { const next = { ...s, email: updated.email }; localStorage.setItem("bnabd_session", JSON.stringify(next)); setSession(next); }
+      setProfileF({ email: updated.email, currentPassword: "", newPassword: "" });
+      notify("Profil zaktualizowany.");
+    });
   }
 
   async function updateReservation(id: number, action: "confirm"|"cancel") {
@@ -229,17 +260,17 @@ export default function Dashboard() {
   if (!session) return null;
 
   const navItems = [
-    { key: "reservations", label: "Rezerwacje", icon: CalendarIcon },
-    { key: "reviews",      label: "Opinie",     icon: StarIcon },
-    ...(session.role === "HOST" || session.role === "ADMIN" ? [{ key: "host",  label: "Zarządzanie", icon: BuildingIcon }] : []),
+    { key: "reservations", label: "Rezerwacje",    icon: CalendarIcon },
+    { key: "reviews",      label: "Opinie",        icon: StarIcon },
+    ...(session.role === "HOST" || session.role === "ADMIN" ? [{ key: "host",  label: "Zarządzanie",  icon: BuildingIcon }] : []),
     ...(session.role === "ADMIN" ? [{ key: "admin", label: "Administracja", icon: CogIcon }] : []),
+    { key: "profile",      label: "Profil",        icon: UserIcon },
   ] as const;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      {/* Sidebar overlay mobile */}
       {sidebarOpen && <div className="fixed inset-0 z-20 bg-zinc-900/40 dark:bg-zinc-950/60 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* ── SIDEBAR ── */}
@@ -255,15 +286,12 @@ export default function Dashboard() {
 
         <nav className="flex-1 p-3 space-y-0.5">
           {navItems.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => { setNav(key as typeof nav); setSidebarOpen(false); }}
+            <button key={key} onClick={() => { setNav(key as typeof nav); setSidebarOpen(false); }}
               className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
                 nav === key
                   ? "bg-zinc-100 dark:bg-zinc-800 font-semibold text-zinc-900 dark:text-zinc-100"
                   : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-zinc-100"
-              }`}
-            >
+              }`}>
               <Icon className="h-4 w-4 flex-shrink-0" />
               {label}
             </button>
@@ -276,7 +304,7 @@ export default function Dashboard() {
             <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate">{session.email}</p>
             <span className={`mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide ${session.role==="ADMIN"?"text-red-500":session.role==="HOST"?"text-amber-600 dark:text-amber-500":"text-emerald-600 dark:text-emerald-500"}`}>{session.role}</span>
           </div>
-          <div className="flex items-center gap-1 px-3 py-1">
+          <div className="flex items-center gap-2 px-3 py-1">
             <ThemeToggle />
             <span className="text-xs text-zinc-400 dark:text-zinc-500">Motyw</span>
           </div>
@@ -291,7 +319,6 @@ export default function Dashboard() {
 
       {/* ── MAIN ── */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        {/* Topbar */}
         <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6">
           <div className="flex items-center gap-3">
             <button className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 lg:hidden" onClick={() => setSidebarOpen(true)}>
@@ -307,7 +334,6 @@ export default function Dashboard() {
           {/* ══════ RESERVATIONS ══════ */}
           {nav === "reservations" && (
             <div className="max-w-5xl space-y-6">
-              {/* Table */}
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
                 <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Twoje rezerwacje</h2>
@@ -331,7 +357,7 @@ export default function Dashboard() {
                       </thead>
                       <tbody>
                         {reservations.map((r) => (
-                          <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                          <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40">
                             <td className="table-cell font-medium">{r.userLogin}</td>
                             <td className="table-cell">
                               <span className="font-medium">{r.shelterName}</span>
@@ -385,9 +411,9 @@ export default function Dashboard() {
                             <span className="text-sm font-semibold">{r.userLogin}</span>
                             <span className="ml-2 text-xs text-zinc-400">{r.createdAt?.slice(0,10)}</span>
                           </div>
-                          <div className="text-xs text-amber-500 font-semibold">{"★".repeat(r.rating)}<span className="text-zinc-200">{"★".repeat(5-r.rating)}</span></div>
+                          <div className="text-xs text-amber-500 font-semibold">{"★".repeat(r.rating)}<span className="text-zinc-200 dark:text-zinc-700">{"★".repeat(5-r.rating)}</span></div>
                         </div>
-                        <p className="mt-1.5 text-sm text-zinc-600 leading-relaxed">{r.comment}</p>
+                        <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{r.comment}</p>
                       </div>
                     ))}
                   </div>
@@ -396,16 +422,16 @@ export default function Dashboard() {
 
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 self-start">
                 <h2 className="mb-4 text-sm font-semibold">Dodaj opinię</h2>
-                <p className="mb-4 text-xs text-zinc-400">Wybrane: <strong className="text-zinc-700">{shelters.find((s) => s.id === reviewShelterId)?.name ?? "—"}</strong></p>
+                <p className="mb-4 text-xs text-zinc-400">Wybrane: <strong className="text-zinc-700 dark:text-zinc-200">{shelters.find((s) => s.id === reviewShelterId)?.name ?? "—"}</strong></p>
                 <form className="space-y-3" onSubmit={submitReview}>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-zinc-500">Ocena</label>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Ocena</label>
                     <select className="field" value={reviewRating} onChange={(e) => setReviewRating(e.target.value)}>
                       {[5,4,3,2,1].map((n) => <option key={n} value={n}>{n} {"★".repeat(n)}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-zinc-500">Komentarz</label>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Komentarz</label>
                     <textarea className="field h-24 resize-none py-2" value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder="Twoja opinia..." required />
                   </div>
                   <button className="btn-primary w-full" type="submit">Dodaj</button>
@@ -418,7 +444,6 @@ export default function Dashboard() {
           {/* ══════ HOST ══════ */}
           {nav === "host" && (session.role === "HOST" || session.role === "ADMIN") && (
             <div className="max-w-4xl space-y-6">
-              {/* Add shelter */}
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
                 <h2 className="mb-4 text-sm font-semibold">Nowe schronisko</h2>
                 <form className="grid gap-3 sm:grid-cols-2" onSubmit={createHostShelter}>
@@ -432,7 +457,6 @@ export default function Dashboard() {
                 </form>
               </div>
 
-              {/* Manage */}
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
                 <div className="border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="mb-3 text-sm font-semibold">Moje schroniska</h2>
@@ -451,15 +475,14 @@ export default function Dashboard() {
                 ) : (
                   <div className="p-6">
                     <div className="mb-5 flex gap-1 border-b border-zinc-100 dark:border-zinc-800 pb-4">
-                      {(["rooms","employees","menu"] as const).map((t) => (
+                      {(["rooms","employees","menu","stats"] as const).map((t) => (
                         <button key={t} onClick={() => setHostSubTab(t)}
                           className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${hostSubTab===t ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
-                          {t === "rooms" ? "Pokoje" : t === "employees" ? "Pracownicy" : "Menu"}
+                          {t === "rooms" ? "Pokoje" : t === "employees" ? "Pracownicy" : t === "menu" ? "Menu" : "Statystyki"}
                         </button>
                       ))}
                     </div>
 
-                    {/* ROOMS */}
                     {hostSubTab === "rooms" && (
                       <>
                         <div className="mb-4 divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-800">
@@ -474,19 +497,30 @@ export default function Dashboard() {
                           ))}
                         </div>
                         <form className="grid gap-3 sm:grid-cols-3" onSubmit={addRoom}>
-                          <input className="field" value={hostRoomF.name} onChange={(e) => setHostRoomF((c) => ({...c,name:e.target.value}))} placeholder="Nazwa pokoju" required />
-                          <input className="field" type="number" min="1" value={hostRoomF.capacity} onChange={(e) => setHostRoomF((c) => ({...c,capacity:e.target.value}))} placeholder="Miejsca" />
-                          <select className="field" value={hostRoomF.roomType} onChange={(e) => setHostRoomF((c) => ({...c,roomType:e.target.value}))}>
-                            <option value="WHOLE">Cały pokój</option>
-                            <option value="SHARED">Pokój wspólny</option>
-                          </select>
-                          <input className="field" type="number" min="1" value={hostRoomF.pricePerNight} onChange={(e) => setHostRoomF((c) => ({...c,pricePerNight:e.target.value}))} placeholder={hostRoomF.roomType === "SHARED" ? "Cena/miejsce/noc (zł)" : "Cena/noc (zł)"} />
-                          <button className="btn-primary sm:col-span-3" type="submit">Dodaj pokój</button>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Nazwa pokoju</label>
+                            <input className="field" value={hostRoomF.name} onChange={(e) => setHostRoomF((c) => ({...c,name:e.target.value}))} placeholder="np. Pokój nr 1" required />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Miejsca</label>
+                            <input className="field" type="number" min="1" value={hostRoomF.capacity} onChange={(e) => setHostRoomF((c) => ({...c,capacity:e.target.value}))} />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Typ</label>
+                            <select className="field" value={hostRoomF.roomType} onChange={(e) => setHostRoomF((c) => ({...c,roomType:e.target.value}))}>
+                              <option value="WHOLE">Cały pokój</option>
+                              <option value="SHARED">Pokój wspólny</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">{hostRoomF.roomType === "SHARED" ? "Cena/miejsce/noc (zł)" : "Cena/noc (zł)"}</label>
+                            <input className="field" type="number" min="1" value={hostRoomF.pricePerNight} onChange={(e) => setHostRoomF((c) => ({...c,pricePerNight:e.target.value}))} />
+                          </div>
+                          <button className="btn-primary self-end sm:col-span-3" type="submit">Dodaj pokój</button>
                         </form>
                       </>
                     )}
 
-                    {/* EMPLOYEES */}
                     {hostSubTab === "employees" && (
                       <>
                         <div className="mb-4 divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-800">
@@ -494,7 +528,7 @@ export default function Dashboard() {
                             <div key={e.id} className="flex items-center justify-between p-4">
                               <div>
                                 <span className="text-sm font-medium">{e.firstName} {e.lastName}</span>
-                                <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600">{e.position}</span>
+                                <span className="ml-2 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">{e.position}</span>
                                 {e.phone && <span className="ml-2 text-xs text-zinc-400">{e.phone}</span>}
                               </div>
                               <button className="btn-sm-danger" onClick={() => deleteEmployee(selectedHostShelterId, e.id)}>Usuń</button>
@@ -511,7 +545,6 @@ export default function Dashboard() {
                       </>
                     )}
 
-                    {/* MENU */}
                     {hostSubTab === "menu" && (
                       <>
                         <div className="mb-4 divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-800">
@@ -519,7 +552,7 @@ export default function Dashboard() {
                             <div key={item.id} className="flex items-center justify-between p-4">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-sm font-medium">{item.name}</span>
-                                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-500">{item.category}</span>
+                                <span className="rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">{item.category}</span>
                                 {item.description && <span className="text-xs text-zinc-400">{item.description}</span>}
                                 <span className="text-sm font-semibold">{item.price} zł</span>
                               </div>
@@ -538,6 +571,47 @@ export default function Dashboard() {
                         </form>
                       </>
                     )}
+
+                    {hostSubTab === "stats" && (
+                      !hostStats ? (
+                        <p className="p-4 text-xs text-zinc-400">Brak danych statystycznych.</p>
+                      ) : (
+                        <>
+                          <div className="mb-5 grid gap-4 sm:grid-cols-3">
+                            {[
+                              { label: "Rezerwacje", value: hostStats.reservations },
+                              { label: "Oczekujące", value: hostStats.pendingReservations },
+                              { label: "Przychód",   value: `${Math.round(hostStats.revenue).toLocaleString()} zł` },
+                            ].map(({ label, value }) => (
+                              <div key={label} className="rounded-lg border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 p-4">
+                                <p className="text-xs font-medium text-zinc-400">{label}</p>
+                                <p className="mt-1 text-2xl font-bold tracking-tight">{value}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <h3 className="mb-4 text-sm font-semibold">Rezerwacje / miesiąc</h3>
+                          <ResponsiveContainer width="100%" height={160}>
+                            <BarChart data={hostChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+                              <XAxis dataKey="name" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip cursor={{ fill: cursorFill }} contentStyle={tooltipStyle} />
+                              <Bar dataKey="Rez" name="Rezerwacje" fill={theme === "dark" ? "#e4e4e7" : "#18181b"} radius={[3,3,0,0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                          <h3 className="mb-4 mt-6 text-sm font-semibold">Przychód / miesiąc</h3>
+                          <ResponsiveContainer width="100%" height={160}>
+                            <BarChart data={hostRevData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+                              <XAxis dataKey="name" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip cursor={{ fill: cursorFill }} formatter={(v) => [`${Number(v).toLocaleString()} zł`, "Przychód"]} contentStyle={tooltipStyle} />
+                              <Bar dataKey="Przychód" fill="#f59e0b" radius={[3,3,0,0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </>
+                      )
+                    )}
                   </div>
                 )}
               </div>
@@ -547,7 +621,6 @@ export default function Dashboard() {
           {/* ══════ ADMIN ══════ */}
           {nav === "admin" && session.role === "ADMIN" && (
             <div className="max-w-5xl space-y-6">
-              {/* Stats */}
               {stats && (
                 <div className="grid gap-4 sm:grid-cols-4">
                   {[
@@ -564,7 +637,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Chart + reset */}
               {chartData.length > 0 && (
                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
                   <div className="mb-5 flex items-center justify-between">
@@ -573,23 +645,37 @@ export default function Dashboard() {
                   </div>
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                      <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e4e4e7", boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }} />
-                      <Bar dataKey="Rez" name="Rezerwacje" fill="#18181b" radius={[3,3,0,0]} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip cursor={{ fill: cursorFill }} contentStyle={tooltipStyle} />
+                      <Bar dataKey="Rez" name="Rezerwacje" fill={theme === "dark" ? "#e4e4e7" : "#18181b"} radius={[3,3,0,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               )}
 
-              {/* Employees */}
+              {revenueData.length > 0 && (
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
+                  <h2 className="mb-5 text-sm font-semibold">Przychód / miesiąc</h2>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={revenueData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip cursor={{ fill: cursorFill }} formatter={(v) => [`${Number(v).toLocaleString()} zł`, "Przychód"]} contentStyle={tooltipStyle} />
+                      <Bar dataKey="Przychód" fill="#f59e0b" radius={[3,3,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
                 <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Pracownicy</h2>
                   <button className="btn-secondary h-8 px-3 text-xs" onClick={() => load<Employee[]>("/api/admin/employees", setAllEmployees)}>Odśwież</button>
                 </div>
-                <div className="border-b border-zinc-100 p-5">
+                <div className="border-b border-zinc-100 dark:border-zinc-800 p-5">
                   <form className="grid gap-3 sm:grid-cols-3" onSubmit={addAdminEmployee}>
                     <select className="field" value={adminEmpShelterId} onChange={(e) => setAdminEmpShelterId(e.target.value)} required>
                       <option value="">Wybierz schronisko</option>
@@ -613,7 +699,7 @@ export default function Dashboard() {
                     </tr></thead>
                     <tbody>
                       {allEmployees.map((e) => (
-                        <tr key={e.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                        <tr key={e.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40">
                           <td className="table-cell font-medium">{e.firstName} {e.lastName}</td>
                           <td className="table-cell"><span className="rounded-full border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-400">{e.position}</span></td>
                           <td className="table-cell text-zinc-500">{e.shelterName}</td>
@@ -626,7 +712,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Users */}
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
                 <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Użytkownicy</h2>
@@ -642,11 +727,11 @@ export default function Dashboard() {
                     </tr></thead>
                     <tbody>
                       {users.map((u) => (
-                        <tr key={u.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                        <tr key={u.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40">
                           <td className="table-cell font-medium">{u.login}</td>
                           <td className="table-cell text-zinc-500 text-xs">{u.email}</td>
                           <td className="table-cell">
-                            <select className="rounded border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-700 focus:outline-none" value={u.role} onChange={(e) => changeRole(u.id, e.target.value)}>
+                            <select className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-200 focus:outline-none" value={u.role} onChange={(e) => changeRole(u.id, e.target.value)}>
                               <option value="USER">USER</option>
                               <option value="HOST">HOST</option>
                               <option value="ADMIN">ADMIN</option>
@@ -662,7 +747,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Shelters */}
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
                 <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
                   <h2 className="text-sm font-semibold">Schroniska</h2>
@@ -678,7 +762,7 @@ export default function Dashboard() {
                     </tr></thead>
                     <tbody>
                       {shelters.map((s) => (
-                        <tr key={s.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                        <tr key={s.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40">
                           <td className="table-cell font-medium">{s.name}</td>
                           <td className="table-cell text-zinc-500 text-xs">{s.location}</td>
                           <td className="table-cell text-zinc-500">{s.beds}</td>
@@ -688,6 +772,30 @@ export default function Dashboard() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══════ PROFILE ══════ */}
+          {nav === "profile" && (
+            <div className="max-w-lg space-y-6">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
+                <h2 className="mb-1 text-sm font-semibold">Profil</h2>
+                <p className="mb-5 text-xs text-zinc-400">Login <strong className="text-zinc-700 dark:text-zinc-200">{session.login}</strong> · rola <strong className="text-zinc-700 dark:text-zinc-200">{session.role}</strong></p>
+                <form className="space-y-4" onSubmit={updateProfile}>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Email</label>
+                    <input className="field" type="email" value={profileF.email} onChange={(e) => setProfileF((c) => ({ ...c, email: e.target.value }))} required />
+                  </div>
+                  <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                    <p className="mb-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">Zmiana hasła <span className="text-zinc-400 dark:text-zinc-500">(opcjonalnie)</span></p>
+                    <div className="space-y-3">
+                      <input className="field" type="password" value={profileF.currentPassword} onChange={(e) => setProfileF((c) => ({ ...c, currentPassword: e.target.value }))} placeholder="Aktualne hasło" autoComplete="current-password" />
+                      <input className="field" type="password" minLength={6} value={profileF.newPassword} onChange={(e) => setProfileF((c) => ({ ...c, newPassword: e.target.value }))} placeholder="Nowe hasło (min. 6 znaków)" autoComplete="new-password" />
+                    </div>
+                  </div>
+                  <button className="btn-primary w-full" type="submit">Zapisz zmiany</button>
+                </form>
               </div>
             </div>
           )}
@@ -719,6 +827,9 @@ function LogoutIcon({ className }: { className?: string }) {
 }
 function MenuIcon({ className }: { className?: string }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>;
+}
+function UserIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="8" r="4"/><path strokeLinecap="round" strokeLinejoin="round" d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg>;
 }
 
 function RStatus({ status }: { status: Reservation["status"] }) {
