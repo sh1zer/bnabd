@@ -20,6 +20,7 @@ import pl.bnabd.backend.dto.RoomDto;
 import pl.bnabd.backend.dto.RoomRequest;
 import pl.bnabd.backend.dto.ShelterDto;
 import pl.bnabd.backend.dto.ShelterRequest;
+import pl.bnabd.backend.dto.ShelterStatsResponse;
 import pl.bnabd.backend.service.CurrentUserProvider;
 import pl.bnabd.backend.service.ShelterService;
 
@@ -48,6 +49,11 @@ public class ShelterController {
     @GetMapping("/{id}/rooms")
     List<RoomDto> listRooms(@PathVariable long id) {
         return shelterService.findRooms(id);
+    }
+
+    @GetMapping("/{id}/stats")
+    ShelterStatsResponse stats(@PathVariable long id) {
+        return shelterService.shelterStats(id, currentUserProvider.require());
     }
 
     @GetMapping("/{id}/rooms/availability")

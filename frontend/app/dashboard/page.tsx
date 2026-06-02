@@ -24,6 +24,7 @@ type UserRecord  = { id: number; login: string; email: string; role: "USER"|"HOS
 type Employee    = { id: number; shelterId: number; shelterName: string; firstName: string; lastName: string; position: string; phone: string };
 type MenuItemT   = { id: number; shelterId: number; name: string; description: string; price: number; category: string };
 type Stats       = { users: number; shelters: number; rooms: number; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[] };
+type ShelterStats = { shelterId: number; shelterName: string; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[] };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,7 +59,8 @@ export default function Dashboard() {
   // UI state
   const [reviewShelterId, setReviewShelterId]             = useState<number | null>(null);
   const [selectedHostShelterId, setSelectedHostShelterId] = useState<number | null>(null);
-  const [hostSubTab, setHostSubTab]                       = useState<"rooms"|"employees"|"menu">("rooms");
+  const [hostSubTab, setHostSubTab]                       = useState<"rooms"|"employees"|"menu"|"stats">("rooms");
+  const [hostStats, setHostStats]                         = useState<ShelterStats | null>(null);
   const [adminEmpShelterId, setAdminEmpShelterId]         = useState("");
   const [msg, setMsg]                                     = useState("");
   const [msgError, setMsgError]                           = useState(false);
@@ -76,6 +78,7 @@ export default function Dashboard() {
 
   const hostShelters = useMemo(() => session?.role === "ADMIN" ? shelters : shelters.filter((s) => s.ownerId === session?.userId), [shelters, session]);
   const chartData    = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month-1)%12], Rez: d.count }));
+  const hostChartData = (hostStats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month-1)%12], Rez: d.count }));
 
   useEffect(() => {
     const s = readSession();
@@ -90,6 +93,7 @@ export default function Dashboard() {
       load<Room[]>(`/api/shelters/${selectedHostShelterId}/rooms`, setRooms);
       load<Employee[]>(`/api/shelters/${selectedHostShelterId}/employees`, setEmployees);
       load<MenuItemT[]>(`/api/shelters/${selectedHostShelterId}/menu`, setMenuItems);
+      call<ShelterStats>(`/api/shelters/${selectedHostShelterId}/stats`).then(setHostStats).catch(() => setHostStats(null));
     }
   }, [selectedHostShelterId]);
 
@@ -645,10 +649,10 @@ export default function Dashboard() {
                 ) : (
                   <div className="p-6">
                     <div className="mb-5 flex gap-1 border-b border-zinc-800 pb-4">
-                      {(["rooms","employees","menu"] as const).map((t) => (
+                      {(["rooms","employees","menu","stats"] as const).map((t) => (
                         <button key={t} onClick={() => setHostSubTab(t)}
                           className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${hostSubTab===t ? "bg-zinc-100 text-zinc-900" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"}`}>
-                          {t === "rooms" ? "Pokoje" : t === "employees" ? "Pracownicy" : "Menu"}
+                          {t === "rooms" ? "Pokoje" : t === "employees" ? "Pracownicy" : t === "menu" ? "Menu" : "Statystyki"}
                         </button>
                       ))}
                     </div>
@@ -731,6 +735,40 @@ export default function Dashboard() {
                           <button className="btn-primary sm:col-span-2" type="submit">Dodaj do menu</button>
                         </form>
                       </>
+                    )}
+
+                    {/* STATS */}
+                    {hostSubTab === "stats" && (
+                      !hostStats ? (
+                        <p className="p-4 text-xs text-zinc-400">Brak danych statystycznych.</p>
+                      ) : (
+                        <>
+                          <div className="mb-5 grid gap-4 sm:grid-cols-3">
+                            <div className="rounded-lg border border-zinc-800 bg-zinc-800/40 p-4">
+                              <p className="text-xs font-medium text-zinc-400">Rezerwacje</p>
+                              <p className="mt-1 text-2xl font-bold tracking-tight">{hostStats.reservations}</p>
+                            </div>
+                            <div className="rounded-lg border border-zinc-800 bg-zinc-800/40 p-4">
+                              <p className="text-xs font-medium text-zinc-400">Oczekujące</p>
+                              <p className="mt-1 text-2xl font-bold tracking-tight">{hostStats.pendingReservations}</p>
+                            </div>
+                            <div className="rounded-lg border border-zinc-800 bg-zinc-800/40 p-4">
+                              <p className="text-xs font-medium text-zinc-400">Przychód</p>
+                              <p className="mt-1 text-2xl font-bold tracking-tight">{Math.round(hostStats.revenue).toLocaleString()} zł</p>
+                            </div>
+                          </div>
+                          <h3 className="mb-4 text-sm font-semibold">Rezerwacje / miesiąc</h3>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <BarChart data={hostChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+                              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 11, fill: "#a1a1aa" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip cursor={{ fill: "#27272a" }} contentStyle={{ fontSize: 12, borderRadius: 8, backgroundColor: "#18181b", border: "1px solid #3f3f46", color: "#fafafa", boxShadow: "0 1px 6px rgba(0,0,0,0.4)" }} />
+                              <Bar dataKey="Rez" name="Rezerwacje" fill="#e4e4e7" radius={[3,3,0,0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </>
+                      )
                     )}
                   </div>
                 )}
