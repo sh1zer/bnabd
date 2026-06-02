@@ -91,9 +91,13 @@ public class ReservationService {
 
     public ReservationDto cancel(long id, AppUser currentUser) {
         Reservation reservation = findEntity(id);
-        // A guest may cancel their own booking; an admin may cancel anyone's.
+        // A guest may cancel their own booking, an admin anyone's, and the host who
+        // owns the shelter may cancel bookings in that shelter (mirrors confirm()).
+        AppUser owner = reservation.getRoom().getShelter().getOwner();
         boolean allowed = currentUser.getRole() == UserRole.ADMIN
-                || reservation.getUser().getId().equals(currentUser.getId());
+                || reservation.getUser().getId().equals(currentUser.getId())
+                || (currentUser.getRole() == UserRole.HOST
+                        && owner != null && owner.getId().equals(currentUser.getId()));
         if (!allowed) {
             throw new ForbiddenException("Nie mozesz anulowac cudzej rezerwacji.");
         }
