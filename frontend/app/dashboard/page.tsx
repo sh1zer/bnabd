@@ -69,6 +69,12 @@ export default function Dashboard() {
   const [profileF, setProfileF]           = useState({ email: "", currentPassword: "", newPassword: "" });
 
   const hostShelters  = useMemo(() => session?.role === "ADMIN" ? shelters : shelters.filter((s) => s.ownerId === session?.userId), [shelters, session]);
+  const visitedShelters = useMemo(() => {
+    const seen = new Set<number>();
+    return reservations
+      .filter((r) => r.status !== "CANCELLED" && !seen.has(r.shelterId) && seen.add(r.shelterId))
+      .map((r) => ({ id: r.shelterId, name: r.shelterName, location: shelters.find((s) => s.id === r.shelterId)?.location ?? "" }));
+  }, [reservations, shelters]);
   const chartData     = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
   const revenueData   = (stats?.monthlyRevenue ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Przychód: Math.round(d.revenue) }));
   const hostChartData = (hostStats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
@@ -389,60 +395,75 @@ export default function Dashboard() {
           )}
 
           {/* ══════ REVIEWS ══════ */}
-          {nav === "reviews" && (
-            <div className="max-w-4xl grid gap-6 lg:grid-cols-[1fr_320px]">
-              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
-                <div className="border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
-                  <h2 className="mb-3 text-sm font-semibold">Opinie</h2>
-                  <div className="flex flex-wrap gap-1.5">
-                    {shelters.map((s) => (
-                      <button key={s.id} onClick={() => { setReviewShelterId(s.id); load<Review[]>(`/api/reviews/shelter/${s.id}`, setReviews); }}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${reviewShelterId === s.id ? "border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500"}`}>
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
+          {nav === "reviews" && (session.role === "USER" ? (
+            <div className="max-w-3xl space-y-3">
+              {visitedShelters.length === 0 ? (
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-16 text-center text-sm text-zinc-400">
+                  Nie masz jeszcze odwiedzonych schronisk. Zarezerwuj nocleg, aby dodać opinię.
                 </div>
-                {reviews.length === 0 ? (
-                  <div className="py-16 text-center text-sm text-zinc-400">Wybierz schronisko.</div>
-                ) : (
-                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    {reviews.map((r) => (
-                      <div key={r.id} className="px-6 py-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <span className="text-sm font-semibold">{r.userLogin}</span>
-                            <span className="ml-2 text-xs text-zinc-400">{formatDate(r.createdAt)}</span>
-                          </div>
-                          <div className="text-xs text-amber-500 font-semibold">{"★".repeat(r.rating)}<span className="text-zinc-200 dark:text-zinc-700">{"★".repeat(5-r.rating)}</span></div>
-                        </div>
-                        <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{r.comment}</p>
+              ) : visitedShelters.map((s) => (
+                <div key={s.id} className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold">{s.name}</h3>
+                      {s.location && <p className="mt-0.5 text-xs text-zinc-400">{s.location}</p>}
+                    </div>
+                    <button className="btn-secondary h-8 px-3 text-xs"
+                      onClick={() => { setReviewShelterId(reviewShelterId === s.id ? null : s.id); setReviewComment(""); setReviewRating("5"); }}>
+                      {reviewShelterId === s.id ? "Anuluj" : "Dodaj opinię"}
+                    </button>
+                  </div>
+                  {reviewShelterId === s.id && (
+                    <form className="mt-4 space-y-3 border-t border-zinc-100 dark:border-zinc-800 pt-4" onSubmit={submitReview}>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Ocena</label>
+                        <select className="field" value={reviewRating} onChange={(e) => setReviewRating(e.target.value)}>
+                          {[5,4,3,2,1].map((n) => <option key={n} value={n}>{n} {"★".repeat(n)}</option>)}
+                        </select>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 self-start">
-                <h2 className="mb-4 text-sm font-semibold">Dodaj opinię</h2>
-                <p className="mb-4 text-xs text-zinc-400">Wybrane: <strong className="text-zinc-700 dark:text-zinc-200">{shelters.find((s) => s.id === reviewShelterId)?.name ?? "—"}</strong></p>
-                <form className="space-y-3" onSubmit={submitReview}>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Ocena</label>
-                    <select className="field" value={reviewRating} onChange={(e) => setReviewRating(e.target.value)}>
-                      {[5,4,3,2,1].map((n) => <option key={n} value={n}>{n} {"★".repeat(n)}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Komentarz</label>
-                    <textarea className="field h-24 resize-none py-2" value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder="Twoja opinia..." required />
-                  </div>
-                  <button className="btn-primary w-full" type="submit">Dodaj</button>
-                  <p className="text-[11px] text-zinc-400">Wymaga ukończonego pobytu.</p>
-                </form>
-              </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Komentarz</label>
+                        <textarea className="field h-24 resize-none py-2" value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder="Twoja opinia..." required />
+                      </div>
+                      <button className="btn-primary w-full" type="submit">Dodaj opinię</button>
+                      <p className="text-[11px] text-zinc-400">Wymaga ukończonego pobytu.</p>
+                    </form>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
+          ) : (
+            <div className="max-w-3xl space-y-4">
+              <div className="flex flex-wrap gap-1.5">
+                {hostShelters.map((s) => (
+                  <button key={s.id} onClick={() => { setReviewShelterId(s.id); load<Review[]>(`/api/reviews/shelter/${s.id}`, setReviews); }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${reviewShelterId === s.id ? "border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500"}`}>
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+              {!reviewShelterId ? (
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-16 text-center text-sm text-zinc-400">Wybierz schronisko.</div>
+              ) : reviews.length === 0 ? (
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-16 text-center text-sm text-zinc-400">Brak opinii dla tego schroniska.</div>
+              ) : (
+                <div className="divide-y divide-zinc-100 dark:divide-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="px-6 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <span className="text-sm font-semibold">{r.userLogin}</span>
+                          <span className="ml-2 text-xs text-zinc-400">{formatDate(r.createdAt)}</span>
+                        </div>
+                        <div className="text-xs text-amber-500 font-semibold">{"★".repeat(r.rating)}<span className="text-zinc-200 dark:text-zinc-700">{"★".repeat(5-r.rating)}</span></div>
+                      </div>
+                      <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{r.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
 
           {/* ══════ HOST ══════ */}
           {nav === "host" && (session.role === "HOST" || session.role === "ADMIN") && (
