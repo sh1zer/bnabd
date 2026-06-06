@@ -29,8 +29,14 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
 export default function LandingPage() {
   const router = useRouter();
   const [shelters, setShelters] = useState<Shelter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState("");
+  const [query, setQuery] = useState("");
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [guests, setGuests] = useState(1);
   const [modal, setModal] = useState<"login" | "register" | null>(null);
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [error, setError] = useState("");
@@ -45,7 +51,10 @@ export default function LandingPage() {
 
   useEffect(() => {
     setSession(readSession());
-    apiFetch<Shelter[]>("/api/shelters").then(setShelters).catch(() => {});
+    apiFetch<Shelter[]>("/api/shelters")
+      .then(setShelters)
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
     const fn = () => setScrolled(window.scrollY > 30);
     window.addEventListener("scroll", fn);
     return () => window.removeEventListener("scroll", fn);
@@ -74,12 +83,30 @@ export default function LandingPage() {
 
   function handleSearch(e: FormEvent) {
     e.preventDefault();
-    router.push(`/search${filter ? `?location=${encodeURIComponent(filter)}` : ""}`);
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("location", query.trim());
+    if (checkIn) params.set("checkIn", checkIn);
+    if (checkOut) params.set("checkOut", checkOut);
+    if (guests > 1) params.set("guests", String(guests));
+    const qs = params.toString();
+    router.push(`/search${qs ? `?${qs}` : ""}`);
   }
 
   function openModal(tab: "login" | "register") {
     setError(""); setAuthTab(tab); setModal(tab);
   }
+
+  function logout() {
+    localStorage.removeItem("bnabd_session");
+    setSession(null);
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+  const ranked = [...shelters].sort((a, b) => b.rating - a.rating);
+  const displayed = filter.trim()
+    ? ranked.filter((s) =>
+        `${s.name} ${s.location}`.toLowerCase().includes(filter.trim().toLowerCase()))
+    : ranked.slice(0, 6);
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
@@ -103,20 +130,21 @@ export default function LandingPage() {
           </button>
 
           <div className="flex items-center gap-1">
-            <button
-              className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-md ${
-                scrolled ? "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800" : "text-white/80 hover:text-white"
-              }`}
-              onClick={() => router.push("/search")}
-            >Schroniska</button>
-
             <ThemeToggle className={scrolled ? "" : "text-white/70 hover:text-white hover:bg-white/10 dark:text-white/70"} />
 
             {session ? (
-              <button
-                className="ml-2 rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-1.5 text-sm font-semibold text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-white transition-colors"
-                onClick={() => router.push("/dashboard")}
-              >Panel →</button>
+              <>
+                <button
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-md ${
+                    scrolled ? "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" : "text-white/80 hover:text-white"
+                  }`}
+                  onClick={logout}
+                >Wyloguj</button>
+                <button
+                  className="ml-1 rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-1.5 text-sm font-semibold text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-white transition-colors"
+                  onClick={() => router.push("/dashboard")}
+                >Panel →</button>
+              </>
             ) : (
               <>
                 <button
@@ -142,7 +170,7 @@ export default function LandingPage() {
           <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.55) 100%)" }} />
         </div>
 
-        <div className="relative z-10 max-w-2xl">
+        <div className="relative z-10 max-w-3xl">
           <p className="mb-5 text-xs font-semibold tracking-[0.25em] uppercase text-white/50 drop-shadow">
             Schroniska turystyczne · Polska
           </p>
@@ -154,19 +182,57 @@ export default function LandingPage() {
             Przeglądaj schroniska, sprawdzaj dostępność i rezerwuj online — szybko i bez pośredników.
           </p>
 
-          <form className="mx-auto flex max-w-md gap-2" onSubmit={handleSearch}>
-            <input
-              className="h-12 flex-1 rounded-lg px-4 text-sm text-white outline-none transition backdrop-blur placeholder:text-white/40"
-              style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)" }}
-              onFocus={(e) => e.target.style.border = "1px solid rgba(255,255,255,0.5)"}
-              onBlur={(e) => e.target.style.border = "1px solid rgba(255,255,255,0.2)"}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Tatry, Beskidy, Karkonosze..."
-            />
-            <button className="h-12 rounded-lg px-6 text-sm font-semibold text-zinc-900 transition hover:bg-amber-200 bg-amber-300" type="submit">
-              Szukaj
-            </button>
+          <form onSubmit={handleSearch} className="mx-auto max-w-3xl text-left">
+            <div className="flex flex-col gap-2 rounded-2xl bg-white/95 dark:bg-zinc-900/95 p-2 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:gap-0">
+              <div className="flex-[2] px-3 py-1.5">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Lokalizacja</label>
+                <input
+                  className="w-full bg-transparent text-sm text-zinc-900 dark:text-zinc-100 outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Tatry, Beskidy, Karkonosze..."
+                />
+              </div>
+              <div className="hidden w-px self-stretch bg-zinc-200 dark:bg-zinc-700 sm:block" />
+              <div className="flex-1 px-3 py-1.5">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Przyjazd</label>
+                <input
+                  type="date" min={today}
+                  className="w-full bg-transparent text-sm text-zinc-900 dark:text-zinc-100 outline-none"
+                  value={checkIn}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                />
+              </div>
+              <div className="hidden w-px self-stretch bg-zinc-200 dark:bg-zinc-700 sm:block" />
+              <div className="flex-1 px-3 py-1.5">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Wyjazd</label>
+                <input
+                  type="date" min={checkIn || today}
+                  className="w-full bg-transparent text-sm text-zinc-900 dark:text-zinc-100 outline-none"
+                  value={checkOut}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                />
+              </div>
+              <div className="hidden w-px self-stretch bg-zinc-200 dark:bg-zinc-700 sm:block" />
+              <div className="px-3 py-1.5 sm:w-20">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Osoby</label>
+                <input
+                  type="number" min={1}
+                  className="w-full bg-transparent text-sm text-zinc-900 dark:text-zinc-100 outline-none"
+                  value={guests}
+                  onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
+                />
+              </div>
+              <button
+                type="submit"
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-300 px-6 text-sm font-semibold text-zinc-900 transition hover:bg-amber-200 sm:ml-1"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                </svg>
+                Szukaj
+              </button>
+            </div>
           </form>
 
           <div className="mt-10 flex justify-center gap-6 text-xs text-white/40">
@@ -205,15 +271,37 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── REGIONS ── */}
+      <section className="px-6 py-20">
+        <div className="mx-auto max-w-6xl">
+          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Odkrywaj</p>
+          <h2 className="mb-12 text-center text-2xl font-bold tracking-tight">Popularne regiony</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {["Tatry", "Beskidy", "Karkonosze", "Bieszczady", "Sudety", "Gorce"].map((r) => (
+              <button
+                key={r}
+                onClick={() => router.push(`/search?location=${encodeURIComponent(r)}`)}
+                className="group flex flex-col items-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 transition hover:border-amber-300 dark:hover:border-amber-400/50 hover:shadow-md dark:hover:shadow-zinc-900/50"
+              >
+                <span className="text-2xl transition group-hover:scale-110">⛰</span>
+                <span className="text-sm font-semibold">{r}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── SHELTERS ── */}
       <section ref={sheltersRef} className="px-6 py-20" id="schroniska">
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight">Schroniska</h2>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{shelters.length} obiektów w systemie</p>
+              <h2 className="text-2xl font-bold tracking-tight">Polecane schroniska</h2>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                {filter.trim() ? `${displayed.length} wyników` : "Najwyżej oceniane obiekty"}
+              </p>
             </div>
-            <form className="flex gap-2" onSubmit={handleSearch}>
+            <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
               <input
                 className="h-9 w-52 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm outline-none transition placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-2 focus:ring-zinc-900/5 dark:text-zinc-100"
                 value={filter}
@@ -227,7 +315,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {shelters.map((s) => (
+            {displayed.map((s) => (
               <div
                 key={s.id}
                 className="group overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-md dark:hover:shadow-zinc-900/50 cursor-pointer"
@@ -264,11 +352,21 @@ export default function LandingPage() {
             ))}
           </div>
 
-          {shelters.length === 0 && (
+          {loading ? (
             <div className="py-20 text-center">
-              <p className="text-zinc-400 dark:text-zinc-500">Brak schronisk dla podanej lokalizacji.</p>
+              <p className="text-zinc-400 dark:text-zinc-500">Ładowanie schronisk…</p>
             </div>
-          )}
+          ) : loadError ? (
+            <div className="py-20 text-center">
+              <p className="text-zinc-400 dark:text-zinc-500">Nie udało się załadować schronisk. Spróbuj ponownie później.</p>
+            </div>
+          ) : displayed.length === 0 ? (
+            <div className="py-20 text-center">
+              <p className="text-zinc-400 dark:text-zinc-500">
+                {shelters.length === 0 ? "Brak schronisk w systemie." : "Brak schronisk dla podanej lokalizacji."}
+              </p>
+            </div>
+          ) : null}
 
           <div className="mt-10 text-center">
             <button
@@ -295,7 +393,7 @@ export default function LandingPage() {
       <footer className="border-t border-zinc-100 dark:border-zinc-800 px-6 py-8">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 text-xs text-zinc-400 dark:text-zinc-500">
           <span className="font-semibold text-zinc-900 dark:text-zinc-100">SchroniskoHub</span>
-          <span>© 2024 · Projekt akademicki</span>
+          <span>© {new Date().getFullYear()} · Projekt akademicki</span>
         </div>
       </footer>
 

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "../../components/ThemeProvider";
+import { formatDate } from "../../lib/date";
 
 declare global {
   interface Window {
@@ -276,7 +277,7 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
                         <span className="text-sm font-semibold">{r.userLogin}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-amber-500">{"★".repeat(r.rating)}<span className="text-zinc-200 dark:text-zinc-700">{"★".repeat(5 - r.rating)}</span></span>
-                          <span className="text-xs text-zinc-400 dark:text-zinc-500">{r.createdAt?.slice(0, 10)}</span>
+                          <span className="text-xs text-zinc-400 dark:text-zinc-500">{formatDate(r.createdAt)}</span>
                         </div>
                       </div>
                       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{r.comment}</p>
