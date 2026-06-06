@@ -125,7 +125,7 @@ export default function LandingPage() {
               </svg>
             </div>
             <span className={`text-sm font-bold tracking-tight ${scrolled ? "text-zinc-900 dark:text-zinc-100" : "text-white"}`}>
-              SchroniskoHub
+              Schroniskowo
             </span>
           </button>
 
@@ -392,7 +392,7 @@ export default function LandingPage() {
       {/* ── FOOTER ── */}
       <footer className="border-t border-zinc-100 dark:border-zinc-800 px-6 py-8">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 text-xs text-zinc-400 dark:text-zinc-500">
-          <span className="font-semibold text-zinc-900 dark:text-zinc-100">SchroniskoHub</span>
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">Schroniskowo</span>
           <span>© {new Date().getFullYear()} · Projekt akademicki</span>
         </div>
       </footer>

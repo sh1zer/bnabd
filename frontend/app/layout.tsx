@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "SchroniskoHub",
+  title: "Schroniskowo",
   description: "System rezerwacji miejsc w schroniskach turystycznych"
 };
 
@@ -27,7 +26,6 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider>
-          <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
           {children}
         </ThemeProvider>
       </body>

@@ -70,7 +70,7 @@ function SearchContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l7 7 7-7M5 14l7 7 7-7" />
               </svg>
             </div>
-            <span className="text-sm font-bold tracking-tight hidden sm:block">SchroniskoHub</span>
+            <span className="text-sm font-bold tracking-tight hidden sm:block">Schroniskowo</span>
           </button>
 
           {/* Search bar */}

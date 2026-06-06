@@ -5,13 +5,6 @@ import { useRouter } from "next/navigation";
 import { ThemeToggle } from "../../components/ThemeProvider";
 import { formatDate } from "../../lib/date";
 
-declare global {
-  interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Razorpay: new (options: Record<string, unknown>) => { open(): void };
-  }
-}
-
 type Session    = { token: string; userId: number; login: string; email: string; role: string };
 type Shelter    = { id: number; ownerId: number; name: string; description: string; location: string; phone: string; email: string; imageUrl: string; rating: number; beds: number; price: string };
 type RoomAvail  = { id: number; name: string; capacity: number; roomType: "WHOLE" | "SHARED"; pricePerNight: number; available: boolean; availableCapacity: number };
@@ -35,7 +28,8 @@ async function apiFetch<T>(path: string, opts?: RequestInit, token?: string): Pr
     },
   });
   if (!res.ok) { const e = await res.json().catch(() => ({ message: "Błąd" })); throw new Error(e.message); }
-  return res.json();
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export default function ShelterPage({ params }: { params: { id: string } }) {
@@ -53,6 +47,11 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
   const [bookMsg, setBookMsg]     = useState("");
   const [bookError, setBookError] = useState(false);
 
+  // Placeholder payment: holds the just-created reservation awaiting "payment".
+  const [payment, setPayment]       = useState<(Reservation & { id: number }) | null>(null);
+  const [paying, setPaying]         = useState(false);
+  const [payError, setPayError]     = useState("");
+
   const [showLogin, setShowLogin]         = useState(false);
   const [loginLogin, setLoginLogin]       = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -66,6 +65,21 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
     ]).finally(() => setLoading(false));
   }, [shelterId]);
 
+  // Keep the selected room valid for the current guest count: if the selection
+  // no longer fits (or none was made), jump to the first room that does.
+  useEffect(() => {
+    if (!availLoaded) return;
+    const g = Number(form.guestCount) || 1;
+    const fits = (r: RoomAvail) => r.available && (r.roomType === "SHARED" ? r.availableCapacity : r.capacity) >= g;
+    setForm((c) => {
+      const cur = roomAvail.find((r) => String(r.id) === c.roomId);
+      if (cur && fits(cur)) return c;
+      const next = roomAvail.find(fits);
+      const id = next ? String(next.id) : "";
+      return id === c.roomId ? c : { ...c, roomId: id };
+    });
+  }, [roomAvail, form.guestCount, availLoaded]);
+
   async function checkAvail(start: string, end: string) {
     if (!start || !end || end <= start) { setRoomAvail([]); setAvailLoaded(false); return; }
     try {
@@ -75,8 +89,6 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
         readSession()?.token
       );
       setRoomAvail(data); setAvailLoaded(true);
-      const first = data.find((r) => r.available);
-      if (first) setForm((c) => ({ ...c, roomId: String(first.id) }));
     } catch { setRoomAvail([]); setAvailLoaded(false); }
   }
 
@@ -105,55 +117,42 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
         { method: "POST", body: JSON.stringify({ roomId: Number(form.roomId), startDate: form.startDate, endDate: form.endDate, guestCount: Number(form.guestCount), boardType: form.boardType }) },
         s.token
       );
-      const result = await openRazorpay(reservation, s);
-      if (result === "confirmed") {
-        notify("Płatność zakończona sukcesem! Rezerwacja potwierdzona.");
-        setForm({ startDate: "", endDate: "", roomId: "", guestCount: "2", boardType: "Bez wyżywienia" });
-        setRoomAvail([]); setAvailLoaded(false);
-      } else {
-        notify("Płatność anulowana. Rezerwacja cofnięta.", true);
-      }
+      // Reservation is created as PENDING; open the placeholder payment modal.
+      setPayError("");
+      setPayment(reservation);
     } catch (err) { notify(err instanceof Error ? err.message : "Błąd rezerwacji.", true); }
   }
 
-  async function openRazorpay(reservation: Reservation & { id: number }, s: Session): Promise<"confirmed" | "cancelled"> {
-    const order = await apiFetch<{ orderId: string; amountPaise: number; currency: string; keyId: string }>(
-      "/api/payments/create-order",
-      { method: "POST", body: JSON.stringify({ reservationId: reservation.id }) },
-      s.token
-    );
-    return new Promise((resolve, reject) => {
-      const rzp = new window.Razorpay({
-        key: order.keyId, amount: order.amountPaise, currency: order.currency,
-        name: "SchroniskoHub",
-        description: `Rezerwacja #${reservation.id} — ${reservation.shelterName}`,
-        order_id: order.orderId,
-        prefill: { email: s.email, name: s.login },
-        theme: { color: "#18181b" },
-        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-          try {
-            await apiFetch("/api/payments/verify", {
-              method: "POST",
-              body: JSON.stringify({ reservationId: reservation.id, razorpayOrderId: response.razorpay_order_id, razorpayPaymentId: response.razorpay_payment_id, razorpaySignature: response.razorpay_signature }),
-            }, s.token);
-            resolve("confirmed");
-          } catch (err) { reject(err); }
-        },
-        modal: {
-          ondismiss: async () => {
-            try { await apiFetch(`/api/reservations/${reservation.id}/cancel`, { method: "PATCH" }, s.token); } catch { /* ok */ }
-            resolve("cancelled");
-          },
-        },
-      });
-      rzp.open();
-    });
+  // Placeholder payment — no real charge. Confirming flips the reservation to CONFIRMED.
+  async function payNow() {
+    const s = readSession();
+    if (!s || !payment) return;
+    setPaying(true); setPayError("");
+    try {
+      await apiFetch("/api/payments/confirm", { method: "POST", body: JSON.stringify({ reservationId: payment.id }) }, s.token);
+      notify("Płatność zakończona sukcesem! Rezerwacja potwierdzona.");
+      setForm({ startDate: "", endDate: "", roomId: "", guestCount: "2", boardType: "Bez wyżywienia" });
+      setRoomAvail([]); setAvailLoaded(false);
+      setPayment(null);
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "Błąd płatności.");
+    } finally { setPaying(false); }
+  }
+
+  async function abortPayment() {
+    const s = readSession();
+    if (s && payment) {
+      try { await apiFetch(`/api/reservations/${payment.id}/cancel`, { method: "PATCH" }, s.token); } catch { /* ok */ }
+    }
+    notify("Płatność anulowana. Rezerwacja cofnięta.", true);
+    setPayment(null);
   }
 
   const selectedAvail = roomAvail.find((r) => String(r.id) === form.roomId);
-  const maxGuests = selectedAvail
-    ? (selectedAvail.roomType === "SHARED" ? selectedAvail.availableCapacity : selectedAvail.capacity)
-    : undefined;
+  const guests = Number(form.guestCount) || 1;
+  const roomCapacity = (r: RoomAvail) => (r.roomType === "SHARED" ? r.availableCapacity : r.capacity);
+  const roomFits = (r: RoomAvail) => r.available && roomCapacity(r) >= guests;
+  const maxRoomCapacity = roomAvail.reduce((m, r) => (r.available && roomCapacity(r) > m ? roomCapacity(r) : m), 0);
 
   const nights = (() => {
     if (!form.startDate || !form.endDate) return 0;
@@ -202,7 +201,7 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l7 7 7-7M5 14l7 7 7-7" />
               </svg>
             </div>
-            <span className="text-sm font-bold tracking-tight">SchroniskoHub</span>
+            <span className="text-sm font-bold tracking-tight">Schroniskowo</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -317,54 +316,10 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
 
-                {availLoaded && (
-                  <div>
-                    <label className="mb-2 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Wybierz pokój</label>
-                    <div className="space-y-2">
-                      {roomAvail.map((room) => (
-                        <button key={room.id} type="button" disabled={!room.available}
-                          onClick={() => room.available && setForm((c) => ({...c, roomId: String(room.id)}))}
-                          className={`w-full rounded-lg border p-3 text-left transition ${
-                            !room.available
-                              ? "cursor-not-allowed border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 opacity-50"
-                              : form.roomId === String(room.id)
-                              ? "border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900"
-                              : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold">{room.name}</span>
-                            <span className={`text-[10px] font-semibold uppercase ${
-                              !room.available ? "text-red-400"
-                              : form.roomId === String(room.id) ? "text-zinc-300 dark:text-zinc-500"
-                              : "text-emerald-600 dark:text-emerald-400"
-                            }`}>
-                              {room.roomType === "SHARED"
-                                ? (room.available ? `${room.availableCapacity} wolnych` : "Brak")
-                                : (room.available ? "Wolny" : "Zajęty")}
-                            </span>
-                          </div>
-                          <p className={`mt-0.5 text-xs ${form.roomId === String(room.id) ? "text-zinc-300 dark:text-zinc-500" : "text-zinc-400 dark:text-zinc-500"}`}>
-                            {room.roomType === "SHARED"
-                              ? `${room.pricePerNight} zł/miejsce/noc · maks. ${room.capacity} os.`
-                              : `${room.pricePerNight} zł/noc · ${room.capacity} miejsc`}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {availLoaded && roomAvail.length === 0 && (
-                  <p className="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-3 py-2.5 text-sm text-zinc-500 dark:text-zinc-400">
-                    Brak dostępnych pokojów w tym terminie.
-                  </p>
-                )}
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Goście</label>
-                    <input className="field" type="number" min="1" max={maxGuests} value={form.guestCount}
+                    <input className="field" type="number" min="1" max={maxRoomCapacity || undefined} value={form.guestCount}
                       onChange={(e) => setForm((c) => ({...c, guestCount: e.target.value}))} required />
                   </div>
                   <div>
@@ -377,6 +332,66 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
                     </select>
                   </div>
                 </div>
+
+                {availLoaded && (
+                  <div>
+                    <label className="mb-2 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Wybierz pokój</label>
+                    <div className="space-y-2">
+                      {roomAvail.map((room) => {
+                        const fits = roomFits(room);
+                        const tooSmall = room.available && !fits;
+                        const selected = form.roomId === String(room.id);
+                        return (
+                        <button key={room.id} type="button" disabled={!fits}
+                          onClick={() => fits && setForm((c) => ({...c, roomId: String(room.id)}))}
+                          className={`w-full rounded-lg border p-3 text-left transition ${
+                            !fits
+                              ? "cursor-not-allowed border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 opacity-50"
+                              : selected
+                              ? "border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900"
+                              : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold">{room.name}</span>
+                            <span className={`text-[10px] font-semibold uppercase ${
+                              !room.available ? "text-red-400"
+                              : tooSmall ? "text-amber-500"
+                              : selected ? "text-zinc-300 dark:text-zinc-500"
+                              : "text-emerald-600 dark:text-emerald-400"
+                            }`}>
+                              {!room.available
+                                ? (room.roomType === "SHARED" ? "Brak" : "Zajęty")
+                                : tooSmall
+                                ? "Za mały"
+                                : room.roomType === "SHARED"
+                                ? `${room.availableCapacity} wolnych`
+                                : "Wolny"}
+                            </span>
+                          </div>
+                          <p className={`mt-0.5 text-xs ${selected ? "text-zinc-300 dark:text-zinc-500" : "text-zinc-400 dark:text-zinc-500"}`}>
+                            {room.roomType === "SHARED"
+                              ? `${room.pricePerNight} zł/miejsce/noc · maks. ${room.capacity} os.`
+                              : `${room.pricePerNight} zł/noc · ${room.capacity} miejsc`}
+                          </p>
+                        </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {availLoaded && roomAvail.length === 0 && (
+                  <p className="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-3 py-2.5 text-sm text-zinc-500 dark:text-zinc-400">
+                    Brak dostępnych pokojów w tym terminie.
+                  </p>
+                )}
+
+                {availLoaded && roomAvail.length > 0 && !roomAvail.some(roomFits) && (
+                  <p className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-400">
+                    Żaden pokój nie pomieści {guests} {guests === 1 ? "gościa" : "gości"} w tym terminie.
+                  </p>
+                )}
 
                 {estimatedPrice !== null && (
                   <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 px-4 py-3 flex items-center justify-between">
@@ -399,6 +414,40 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </div>
+
+      {/* ── PAYMENT MODAL (placeholder — no real payment is processed) ── */}
+      {payment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-xl">💳</span>
+              <h3 className="text-base font-bold">Płatność (symulacja)</h3>
+            </div>
+            <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+              To jest płatność demonstracyjna — żadne prawdziwe środki nie zostaną pobrane.
+            </p>
+            <div className="mb-5 rounded-lg border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm">
+              <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
+                <span>Rezerwacja #{payment.id}</span>
+                <span>{payment.shelterName}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">Do zapłaty</span>
+                <span className="text-lg font-bold">{payment.totalPrice} zł</span>
+              </div>
+            </div>
+            {payError && (
+              <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-950 px-3 py-2.5 text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900">{payError}</div>
+            )}
+            <button className="btn-primary w-full h-11 text-sm" onClick={payNow} disabled={paying}>
+              {paying ? "Przetwarzanie…" : "Zapłać"}
+            </button>
+            <button className="mt-3 w-full text-center text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition disabled:opacity-50" onClick={abortPayment} disabled={paying}>
+              Anuluj rezerwację
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── LOGIN MODAL ── */}
       {showLogin && (

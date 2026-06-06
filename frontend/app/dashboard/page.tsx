@@ -287,7 +287,7 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l7 7 7-7M5 14l7 7 7-7" />
             </svg>
           </div>
-          <span className="text-sm font-bold tracking-tight">SchroniskoHub</span>
+          <span className="text-sm font-bold tracking-tight">Schroniskowo</span>
         </button>
 
         <nav className="flex-1 p-3 space-y-0.5">

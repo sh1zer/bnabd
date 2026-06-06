@@ -5,9 +5,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import pl.bnabd.backend.dto.CreatePaymentOrderRequest;
-import pl.bnabd.backend.dto.PaymentOrderResponse;
-import pl.bnabd.backend.dto.VerifyPaymentRequest;
+import pl.bnabd.backend.dto.ConfirmPaymentRequest;
 import pl.bnabd.backend.service.CurrentUserProvider;
 import pl.bnabd.backend.service.PaymentService;
 
@@ -23,13 +21,9 @@ public class PaymentController {
         this.currentUserProvider = currentUserProvider;
     }
 
-    @PostMapping("/create-order")
-    PaymentOrderResponse createOrder(@Valid @RequestBody CreatePaymentOrderRequest request) {
-        return paymentService.createOrder(request.reservationId(), currentUserProvider.require());
-    }
-
-    @PostMapping("/verify")
-    void verifyPayment(@Valid @RequestBody VerifyPaymentRequest request) {
-        paymentService.verifyAndConfirm(request, currentUserProvider.require());
+    /** Placeholder "payment": confirms the reservation. No real charge is made. */
+    @PostMapping("/confirm")
+    void confirm(@Valid @RequestBody ConfirmPaymentRequest request) {
+        paymentService.confirm(request.reservationId(), currentUserProvider.require());
     }
 }
