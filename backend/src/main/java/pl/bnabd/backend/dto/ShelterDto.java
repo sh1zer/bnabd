@@ -1,5 +1,7 @@
 package pl.bnabd.backend.dto;
 
+import java.math.BigDecimal;
+
 public record ShelterDto(
         Long id,
         Long ownerId,
@@ -11,5 +13,8 @@ public record ShelterDto(
         String imageUrl,
         double rating,
         int beds,
-        String price) {
+        String price,
+        BigDecimal boardBreakfastPrice,
+        BigDecimal boardHalfBoardPrice,
+        BigDecimal boardFullBoardPrice) {
 }

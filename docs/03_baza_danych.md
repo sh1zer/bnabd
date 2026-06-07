@@ -39,7 +39,8 @@ Tabela przechowuje informacje o schroniskach.
 - opis,
 - lokalizację,
 - dane kontaktowe,
-- zdjęcie.
+- zdjęcie,
+- cennik wyżywienia (dopłaty za poszczególne opcje posiłków, ustalane przez właściciela).
 
 
 ## rooms
@@ -65,6 +66,7 @@ Tabela przechowuje rezerwacje użytkowników.
 - pokój,
 - datę rozpoczęcia i zakończenia pobytu,
 - liczbę gości,
+- wybraną opcję wyżywienia,
 - status rezerwacji,
 - datę utworzenia,
 - cenę (w momencie stworzenia rezerwacji).
@@ -73,6 +75,17 @@ Tabela przechowuje rezerwacje użytkowników.
 - PENDING,
 - CONFIRMED,
 - CANCELLED.
+
+### Opcje wyżywienia:
+Gość przy rezerwacji wybiera jedną z opcji posiłków. Dopłata doliczana jest do ceny
+za każdego gościa i każdą noc pobytu. Wysokość dopłat **ustala właściciel (HOST)
+osobno dla każdego schroniska** przy jego tworzeniu (pola cennika w tabeli `shelters`) —
+nie są to wartości stałe w systemie:
+
+- **Bez wyżywienia** — zawsze bez dopłaty,
+- **Śniadanie** — dopłata wg cennika schroniska,
+- **Śniadanie i kolacja** — dopłata wg cennika schroniska,
+- **Pełne wyżywienie** — dopłata wg cennika schroniska.
 
 
 ## reviews

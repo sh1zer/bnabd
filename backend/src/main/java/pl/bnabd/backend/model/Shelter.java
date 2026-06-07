@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "shelters")
@@ -38,6 +39,12 @@ public class Shelter {
     private String imageUrl;
 
     private double rating;
+
+    // Meal surcharges set by the host, charged per guest per night.
+    // null means the shelter does not offer that board option (treated as 0).
+    private BigDecimal boardBreakfastPrice;
+    private BigDecimal boardHalfBoardPrice;
+    private BigDecimal boardFullBoardPrice;
 
     public Shelter() {
     }
@@ -108,5 +115,29 @@ public class Shelter {
 
     public void setRating(double rating) {
         this.rating = rating;
+    }
+
+    public BigDecimal getBoardBreakfastPrice() {
+        return boardBreakfastPrice;
+    }
+
+    public void setBoardBreakfastPrice(BigDecimal boardBreakfastPrice) {
+        this.boardBreakfastPrice = boardBreakfastPrice;
+    }
+
+    public BigDecimal getBoardHalfBoardPrice() {
+        return boardHalfBoardPrice;
+    }
+
+    public void setBoardHalfBoardPrice(BigDecimal boardHalfBoardPrice) {
+        this.boardHalfBoardPrice = boardHalfBoardPrice;
+    }
+
+    public BigDecimal getBoardFullBoardPrice() {
+        return boardFullBoardPrice;
+    }
+
+    public void setBoardFullBoardPrice(BigDecimal boardFullBoardPrice) {
+        this.boardFullBoardPrice = boardFullBoardPrice;
     }
 }

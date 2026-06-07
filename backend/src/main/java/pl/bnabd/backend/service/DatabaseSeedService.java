@@ -212,6 +212,16 @@ public class DatabaseSeedService implements CommandLineRunner {
         rooms.add(room(jodla, "Sala wspólna", 8, RoomType.SHARED, "47"));
         shelters.add(jodla);
 
+        // --- Meal pricing ---------------------------------------------------
+        // Each host sets their own meal surcharges (per guest, per night), so vary
+        // them across shelters to show the pricing is configurable, not fixed.
+        for (Shelter shelter : shelters) {
+            shelter.setBoardBreakfastPrice(new BigDecimal(15 + rnd.nextInt(16)));  // 15..30
+            shelter.setBoardHalfBoardPrice(new BigDecimal(35 + rnd.nextInt(21)));  // 35..55
+            shelter.setBoardFullBoardPrice(new BigDecimal(55 + rnd.nextInt(31)));  // 55..85
+            shelterRepository.save(shelter);
+        }
+
         // --- Reservations ---------------------------------------------------
         // Each room gets a handful of non-overlapping stays spread across the past
         // year (plus a few upcoming), so the monthly admin charts have real shape.
@@ -330,11 +340,28 @@ public class DatabaseSeedService implements CommandLineRunner {
         if (room.getRoomType() == RoomType.SHARED) {
             cost = cost.multiply(BigDecimal.valueOf(guests));
         }
+        cost = cost.add(boardSurcharge(room.getShelter(), boardType, guests, nights));
         reservation.setTotalPrice(cost);
         reservation.setStatus(status);
         reservation.setBoardType(boardType);
         reservation.setCreatedAt(createdAt);
         return reservation;
+    }
+
+    private static BigDecimal boardSurcharge(Shelter shelter, String boardType, int guests, long nights) {
+        if (boardType == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal perPersonPerNight = switch (boardType) {
+            case "Śniadanie"           -> shelter.getBoardBreakfastPrice();
+            case "Śniadanie i kolacja" -> shelter.getBoardHalfBoardPrice();
+            case "Pełne wyżywienie"    -> shelter.getBoardFullBoardPrice();
+            default                    -> BigDecimal.ZERO;
+        };
+        if (perPersonPerNight == null) {
+            return BigDecimal.ZERO;
+        }
+        return perPersonPerNight.multiply(BigDecimal.valueOf(guests)).multiply(BigDecimal.valueOf(nights));
     }
 
     private Review review(AppUser user, Shelter shelter, int rating, String comment, Instant createdAt) {

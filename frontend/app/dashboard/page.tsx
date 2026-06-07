@@ -9,14 +9,12 @@ import { formatDate } from "../lib/date";
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Session     = { token: string; userId: number; login: string; email: string; role: "USER"|"HOST"|"ADMIN" };
-type Shelter     = { id: number; ownerId: number; name: string; description: string; location: string; phone: string; email: string; imageUrl: string; rating: number; beds: number; price: string };
+type Shelter     = { id: number; ownerId: number; name: string; description: string; location: string; phone: string; email: string; imageUrl: string; rating: number; beds: number; price: string; boardBreakfastPrice: number | null; boardHalfBoardPrice: number | null; boardFullBoardPrice: number | null };
 type RoomType    = "WHOLE" | "SHARED";
 type Room        = { id: number; shelterId: number; shelterName: string; name: string; capacity: number; roomType: RoomType; pricePerNight: number };
 type Reservation = { id: number; userId: number; userLogin: string; roomId: number; roomName: string; shelterId: number; shelterName: string; startDate: string; endDate: string; guestCount: number; totalPrice: number; status: "PENDING"|"CONFIRMED"|"CANCELLED"; boardType: string };
 type Review      = { id: number; userId: number; userLogin: string; shelterId: number; shelterName: string; rating: number; comment: string; createdAt: string };
 type UserRecord  = { id: number; login: string; email: string; role: "USER"|"HOST"|"ADMIN"; createdAt: string };
-type Employee    = { id: number; shelterId: number; shelterName: string; firstName: string; lastName: string; position: string; phone: string };
-type MenuItemT   = { id: number; shelterId: number; name: string; description: string; price: number; category: string };
 type Stats       = { users: number; shelters: number; rooms: number; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[]; monthlyRevenue: { month: number; revenue: number }[] };
 type ShelterStats = { shelterId: number; shelterName: string; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[]; monthlyRevenue: { month: number; revenue: number }[] };
 
@@ -45,27 +43,20 @@ export default function Dashboard() {
   const [rooms, setRooms]               = useState<Room[]>([]);
   const [users, setUsers]               = useState<UserRecord[]>([]);
   const [stats, setStats]               = useState<Stats | null>(null);
-  const [employees, setEmployees]       = useState<Employee[]>([]);
-  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
-  const [menuItems, setMenuItems]       = useState<MenuItemT[]>([]);
 
   // UI state
   const [reviewShelterId, setReviewShelterId]             = useState<number | null>(null);
   const [selectedHostShelterId, setSelectedHostShelterId] = useState<number | null>(null);
-  const [hostSubTab, setHostSubTab]                       = useState<"rooms"|"employees"|"menu"|"stats">("rooms");
+  const [hostSubTab, setHostSubTab]                       = useState<"rooms"|"stats">("rooms");
   const [hostStats, setHostStats]                         = useState<ShelterStats | null>(null);
-  const [adminEmpShelterId, setAdminEmpShelterId]         = useState("");
   const [msg, setMsg]                                     = useState("");
   const [msgError, setMsgError]                           = useState(false);
 
   // Forms
   const [reviewRating, setReviewRating]   = useState("5");
   const [reviewComment, setReviewComment] = useState("");
-  const [hostShelterF, setHostShelterF]   = useState({ name: "", description: "", location: "", phone: "", email: "", imageUrl: "" });
+  const [hostShelterF, setHostShelterF]   = useState({ name: "", description: "", location: "", phone: "", email: "", imageUrl: "", boardBreakfastPrice: "20", boardHalfBoardPrice: "45", boardFullBoardPrice: "65" });
   const [hostRoomF, setHostRoomF]         = useState({ name: "", capacity: "2", roomType: "WHOLE", pricePerNight: "50" });
-  const [empF, setEmpF]                   = useState({ firstName: "", lastName: "", position: "", phone: "" });
-  const [adminEmpF, setAdminEmpF]         = useState({ firstName: "", lastName: "", position: "", phone: "" });
-  const [menuF, setMenuF]                 = useState({ name: "", description: "", price: "20", category: "Śniadanie" });
   const [profileF, setProfileF]           = useState({ email: "", currentPassword: "", newPassword: "" });
 
   const hostShelters  = useMemo(() => session?.role === "ADMIN" ? shelters : shelters.filter((s) => s.ownerId === session?.userId), [shelters, session]);
@@ -99,8 +90,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (selectedHostShelterId) {
       load<Room[]>(`/api/shelters/${selectedHostShelterId}/rooms`, setRooms);
-      load<Employee[]>(`/api/shelters/${selectedHostShelterId}/employees`, setEmployees);
-      load<MenuItemT[]>(`/api/shelters/${selectedHostShelterId}/menu`, setMenuItems);
       call<ShelterStats>(`/api/shelters/${selectedHostShelterId}/stats`).then(setHostStats).catch(() => setHostStats(null));
     }
   }, [selectedHostShelterId]);
@@ -128,7 +117,6 @@ export default function Dashboard() {
     if (s.role === "ADMIN") {
       await load<Stats>("/api/admin/stats", setStats);
       await load<UserRecord[]>("/api/admin/users", setUsers);
-      await load<Employee[]>("/api/admin/employees", setAllEmployees);
     }
   }
 
@@ -156,9 +144,9 @@ export default function Dashboard() {
     });
   }
 
-  async function updateReservation(id: number, action: "confirm"|"cancel") {
+  async function cancelReservation(id: number) {
     await act(async () => {
-      await call(`/api/reservations/${id}/${action}`, { method: "PATCH" });
+      await call(`/api/reservations/${id}/cancel`, { method: "PATCH" });
       await load<Reservation[]>("/api/reservations", setReservations);
       if (session?.role === "ADMIN") await load<Stats>("/api/admin/stats", setStats);
     });
@@ -177,10 +165,17 @@ export default function Dashboard() {
 
   async function createHostShelter(e: FormEvent) {
     e.preventDefault();
+    const num = (v: string) => (v.trim() === "" ? null : Number(v));
     await act(async () => {
-      await call("/api/shelters", { method: "POST", body: JSON.stringify(hostShelterF) });
+      await call("/api/shelters", { method: "POST", body: JSON.stringify({
+        name: hostShelterF.name, description: hostShelterF.description, location: hostShelterF.location,
+        phone: hostShelterF.phone, email: hostShelterF.email, imageUrl: hostShelterF.imageUrl,
+        boardBreakfastPrice: num(hostShelterF.boardBreakfastPrice),
+        boardHalfBoardPrice: num(hostShelterF.boardHalfBoardPrice),
+        boardFullBoardPrice: num(hostShelterF.boardFullBoardPrice),
+      }) });
       notify("Schronisko dodane.");
-      setHostShelterF({ name: "", description: "", location: "", phone: "", email: "", imageUrl: "" });
+      setHostShelterF({ name: "", description: "", location: "", phone: "", email: "", imageUrl: "", boardBreakfastPrice: "20", boardHalfBoardPrice: "45", boardFullBoardPrice: "65" });
       await load<Shelter[]>("/api/shelters", setShelters);
     });
   }
@@ -199,34 +194,6 @@ export default function Dashboard() {
     await act(async () => { await call(`/api/shelters/${shelterId}/rooms/${roomId}`, { method: "DELETE" }); await load<Room[]>(`/api/shelters/${shelterId}/rooms`, setRooms); });
   }
 
-  async function addEmployee(e: FormEvent) {
-    e.preventDefault();
-    if (!selectedHostShelterId) return;
-    await act(async () => {
-      await call(`/api/shelters/${selectedHostShelterId}/employees`, { method: "POST", body: JSON.stringify(empF) });
-      notify("Pracownik dodany."); setEmpF({ firstName: "", lastName: "", position: "", phone: "" });
-      await load<Employee[]>(`/api/shelters/${selectedHostShelterId}/employees`, setEmployees);
-    });
-  }
-
-  async function deleteEmployee(sid: number, id: number) {
-    await act(async () => { await call(`/api/shelters/${sid}/employees/${id}`, { method: "DELETE" }); await load<Employee[]>(`/api/shelters/${sid}/employees`, setEmployees); });
-  }
-
-  async function addMenuItem(e: FormEvent) {
-    e.preventDefault();
-    if (!selectedHostShelterId) return;
-    await act(async () => {
-      await call(`/api/shelters/${selectedHostShelterId}/menu`, { method: "POST", body: JSON.stringify({ ...menuF, price: Number(menuF.price) }) });
-      notify("Pozycja dodana."); setMenuF({ name: "", description: "", price: "20", category: "Śniadanie" });
-      await load<MenuItemT[]>(`/api/shelters/${selectedHostShelterId}/menu`, setMenuItems);
-    });
-  }
-
-  async function deleteMenuItem(sid: number, id: number) {
-    await act(async () => { await call(`/api/shelters/${sid}/menu/${id}`, { method: "DELETE" }); await load<MenuItemT[]>(`/api/shelters/${sid}/menu`, setMenuItems); });
-  }
-
   async function changeRole(userId: number, role: string) {
     await act(async () => { await call(`/api/admin/users/${userId}/role`, { method: "PATCH", body: JSON.stringify({ role }) }); await load<UserRecord[]>("/api/admin/users", setUsers); });
   }
@@ -239,20 +206,6 @@ export default function Dashboard() {
   async function deleteShelterAdmin(id: number, name: string) {
     if (!confirm(`Usunąć "${name}"?`)) return;
     await act(async () => { await call(`/api/admin/shelters/${id}`, { method: "DELETE" }); await load<Shelter[]>("/api/shelters", setShelters); await load<Stats>("/api/admin/stats", setStats); });
-  }
-
-  async function addAdminEmployee(e: FormEvent) {
-    e.preventDefault();
-    if (!adminEmpShelterId) return;
-    await act(async () => {
-      await call(`/api/admin/shelters/${adminEmpShelterId}/employees`, { method: "POST", body: JSON.stringify(adminEmpF) });
-      notify("Pracownik dodany."); setAdminEmpF({ firstName: "", lastName: "", position: "", phone: "" });
-      await load<Employee[]>("/api/admin/employees", setAllEmployees);
-    });
-  }
-
-  async function deleteAdminEmployee(sid: number, id: number) {
-    await act(async () => { await call(`/api/admin/shelters/${sid}/employees/${id}`, { method: "DELETE" }); await load<Employee[]>("/api/admin/employees", setAllEmployees); });
   }
 
   async function resetDatabase() {
@@ -378,12 +331,7 @@ export default function Dashboard() {
                             <td className="table-cell font-semibold">{r.totalPrice} zł</td>
                             <td className="table-cell"><RStatus status={r.status} /></td>
                             <td className="table-cell">
-                              <div className="flex gap-1.5">
-                                {r.status === "PENDING" && (session.role === "ADMIN" || (session.role === "HOST" && hostShelters.some((s) => s.id === r.shelterId))) && (
-                                  <button className="btn-sm-primary" onClick={() => updateReservation(r.id, "confirm")}>Potwierdź</button>
-                                )}
-                                {r.status !== "CANCELLED" && <button className="btn-sm-danger" onClick={() => updateReservation(r.id, "cancel")}>Anuluj</button>}
-                              </div>
+                              {r.status !== "CANCELLED" && <button className="btn-sm-danger" onClick={() => cancelReservation(r.id)}>Anuluj</button>}
                             </td>
                           </tr>
                         ))}
@@ -477,6 +425,23 @@ export default function Dashboard() {
                   <input className="field" type="email" value={hostShelterF.email} onChange={(e) => setHostShelterF((c) => ({...c,email:e.target.value}))} placeholder="Email" />
                   <input className="field sm:col-span-2" value={hostShelterF.imageUrl} onChange={(e) => setHostShelterF((c) => ({...c,imageUrl:e.target.value}))} placeholder="URL zdjęcia" />
                   <textarea className="field resize-none sm:col-span-2" rows={2} value={hostShelterF.description} onChange={(e) => setHostShelterF((c) => ({...c,description:e.target.value}))} placeholder="Opis" />
+                  <div className="sm:col-span-2">
+                    <p className="mb-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">Dopłaty za wyżywienie <span className="text-zinc-400 dark:text-zinc-500">(zł / osoba / noc)</span></p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[11px] text-zinc-400 dark:text-zinc-500">Śniadanie</label>
+                        <input className="field" type="number" min="0" step="0.01" value={hostShelterF.boardBreakfastPrice} onChange={(e) => setHostShelterF((c) => ({...c,boardBreakfastPrice:e.target.value}))} placeholder="0" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] text-zinc-400 dark:text-zinc-500">Śniadanie i kolacja</label>
+                        <input className="field" type="number" min="0" step="0.01" value={hostShelterF.boardHalfBoardPrice} onChange={(e) => setHostShelterF((c) => ({...c,boardHalfBoardPrice:e.target.value}))} placeholder="0" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] text-zinc-400 dark:text-zinc-500">Pełne wyżywienie</label>
+                        <input className="field" type="number" min="0" step="0.01" value={hostShelterF.boardFullBoardPrice} onChange={(e) => setHostShelterF((c) => ({...c,boardFullBoardPrice:e.target.value}))} placeholder="0" />
+                      </div>
+                    </div>
+                  </div>
                   <button className="btn-primary sm:col-span-2" type="submit">Dodaj schronisko</button>
                 </form>
               </div>
@@ -499,10 +464,10 @@ export default function Dashboard() {
                 ) : (
                   <div className="p-6">
                     <div className="mb-5 flex gap-1 border-b border-zinc-100 dark:border-zinc-800 pb-4">
-                      {(["rooms","employees","menu","stats"] as const).map((t) => (
+                      {(["rooms","stats"] as const).map((t) => (
                         <button key={t} onClick={() => setHostSubTab(t)}
                           className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${hostSubTab===t ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
-                          {t === "rooms" ? "Pokoje" : t === "employees" ? "Pracownicy" : t === "menu" ? "Menu" : "Statystyki"}
+                          {t === "rooms" ? "Pokoje" : "Statystyki"}
                         </button>
                       ))}
                     </div>
@@ -541,57 +506,6 @@ export default function Dashboard() {
                             <input className="field" type="number" min="1" value={hostRoomF.pricePerNight} onChange={(e) => setHostRoomF((c) => ({...c,pricePerNight:e.target.value}))} />
                           </div>
                           <button className="btn-primary self-end sm:col-span-3" type="submit">Dodaj pokój</button>
-                        </form>
-                      </>
-                    )}
-
-                    {hostSubTab === "employees" && (
-                      <>
-                        <div className="mb-4 divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-800">
-                          {employees.length === 0 ? <p className="p-4 text-xs text-zinc-400">Brak pracowników.</p> : employees.map((e) => (
-                            <div key={e.id} className="flex items-center justify-between p-4">
-                              <div>
-                                <span className="text-sm font-medium">{e.firstName} {e.lastName}</span>
-                                <span className="ml-2 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">{e.position}</span>
-                                {e.phone && <span className="ml-2 text-xs text-zinc-400">{e.phone}</span>}
-                              </div>
-                              <button className="btn-sm-danger" onClick={() => deleteEmployee(selectedHostShelterId, e.id)}>Usuń</button>
-                            </div>
-                          ))}
-                        </div>
-                        <form className="grid gap-3 sm:grid-cols-2" onSubmit={addEmployee}>
-                          <input className="field" value={empF.firstName} onChange={(e) => setEmpF((c) => ({...c,firstName:e.target.value}))} placeholder="Imię" required />
-                          <input className="field" value={empF.lastName} onChange={(e) => setEmpF((c) => ({...c,lastName:e.target.value}))} placeholder="Nazwisko" required />
-                          <input className="field" value={empF.position} onChange={(e) => setEmpF((c) => ({...c,position:e.target.value}))} placeholder="Stanowisko" required />
-                          <input className="field" value={empF.phone} onChange={(e) => setEmpF((c) => ({...c,phone:e.target.value}))} placeholder="Telefon" />
-                          <button className="btn-primary sm:col-span-2" type="submit">Dodaj pracownika</button>
-                        </form>
-                      </>
-                    )}
-
-                    {hostSubTab === "menu" && (
-                      <>
-                        <div className="mb-4 divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-100 dark:border-zinc-800">
-                          {menuItems.length === 0 ? <p className="p-4 text-xs text-zinc-400">Brak pozycji w menu.</p> : menuItems.map((item) => (
-                            <div key={item.id} className="flex items-center justify-between p-4">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-medium">{item.name}</span>
-                                <span className="rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">{item.category}</span>
-                                {item.description && <span className="text-xs text-zinc-400">{item.description}</span>}
-                                <span className="text-sm font-semibold">{item.price} zł</span>
-                              </div>
-                              <button className="btn-sm-danger" onClick={() => deleteMenuItem(selectedHostShelterId, item.id)}>Usuń</button>
-                            </div>
-                          ))}
-                        </div>
-                        <form className="grid gap-3 sm:grid-cols-2" onSubmit={addMenuItem}>
-                          <input className="field" value={menuF.name} onChange={(e) => setMenuF((c) => ({...c,name:e.target.value}))} placeholder="Nazwa dania" required />
-                          <select className="field" value={menuF.category} onChange={(e) => setMenuF((c) => ({...c,category:e.target.value}))}>
-                            {["Śniadanie","Obiad","Kolacja","Przekąska"].map((c) => <option key={c}>{c}</option>)}
-                          </select>
-                          <input className="field" value={menuF.description} onChange={(e) => setMenuF((c) => ({...c,description:e.target.value}))} placeholder="Opis (opcjonalnie)" />
-                          <input className="field" type="number" min="0.01" step="0.01" value={menuF.price} onChange={(e) => setMenuF((c) => ({...c,price:e.target.value}))} placeholder="Cena (zł)" required />
-                          <button className="btn-primary sm:col-span-2" type="submit">Dodaj do menu</button>
                         </form>
                       </>
                     )}
@@ -693,48 +607,6 @@ export default function Dashboard() {
                   </ResponsiveContainer>
                 </div>
               )}
-
-              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">
-                  <h2 className="text-sm font-semibold">Pracownicy</h2>
-                  <button className="btn-secondary h-8 px-3 text-xs" onClick={() => load<Employee[]>("/api/admin/employees", setAllEmployees)}>Odśwież</button>
-                </div>
-                <div className="border-b border-zinc-100 dark:border-zinc-800 p-5">
-                  <form className="grid gap-3 sm:grid-cols-3" onSubmit={addAdminEmployee}>
-                    <select className="field" value={adminEmpShelterId} onChange={(e) => setAdminEmpShelterId(e.target.value)} required>
-                      <option value="">Wybierz schronisko</option>
-                      {shelters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                    <input className="field" value={adminEmpF.firstName} onChange={(e) => setAdminEmpF((c) => ({...c,firstName:e.target.value}))} placeholder="Imię" required />
-                    <input className="field" value={adminEmpF.lastName} onChange={(e) => setAdminEmpF((c) => ({...c,lastName:e.target.value}))} placeholder="Nazwisko" required />
-                    <input className="field" value={adminEmpF.position} onChange={(e) => setAdminEmpF((c) => ({...c,position:e.target.value}))} placeholder="Stanowisko" required />
-                    <input className="field" value={adminEmpF.phone} onChange={(e) => setAdminEmpF((c) => ({...c,phone:e.target.value}))} placeholder="Telefon" />
-                    <button className="btn-primary" type="submit">Dodaj</button>
-                  </form>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[520px]">
-                    <thead><tr>
-                      <th className="table-head">Imię i nazwisko</th>
-                      <th className="table-head">Stanowisko</th>
-                      <th className="table-head">Schronisko</th>
-                      <th className="table-head">Telefon</th>
-                      <th className="table-head"></th>
-                    </tr></thead>
-                    <tbody>
-                      {allEmployees.map((e) => (
-                        <tr key={e.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40">
-                          <td className="table-cell font-medium">{e.firstName} {e.lastName}</td>
-                          <td className="table-cell"><span className="rounded-full border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-400">{e.position}</span></td>
-                          <td className="table-cell text-zinc-500">{e.shelterName}</td>
-                          <td className="table-cell text-zinc-400 text-xs">{e.phone || "—"}</td>
-                          <td className="table-cell"><button className="btn-sm-danger" onClick={() => deleteAdminEmployee(e.shelterId, e.id)}>Usuń</button></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
 
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
                 <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-6 py-4">

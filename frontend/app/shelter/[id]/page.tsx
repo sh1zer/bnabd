@@ -6,7 +6,7 @@ import { ThemeToggle } from "../../components/ThemeProvider";
 import { formatDate } from "../../lib/date";
 
 type Session    = { token: string; userId: number; login: string; email: string; role: string };
-type Shelter    = { id: number; ownerId: number; name: string; description: string; location: string; phone: string; email: string; imageUrl: string; rating: number; beds: number; price: string };
+type Shelter    = { id: number; ownerId: number; name: string; description: string; location: string; phone: string; email: string; imageUrl: string; rating: number; beds: number; price: string; boardBreakfastPrice: number | null; boardHalfBoardPrice: number | null; boardFullBoardPrice: number | null };
 type RoomAvail  = { id: number; name: string; capacity: number; roomType: "WHOLE" | "SHARED"; pricePerNight: number; available: boolean; availableCapacity: number };
 type Reservation = { id: number; shelterName: string; totalPrice: number };
 type Review     = { id: number; userId: number; userLogin: string; rating: number; comment: string; createdAt: string };
@@ -160,7 +160,11 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
     return d > 0 ? d : 0;
   })();
 
-  const boardExtra: Record<string, number> = { "Śniadanie": 20, "Śniadanie i kolacja": 45, "Pełne wyżywienie": 65 };
+  const boardExtra: Record<string, number> = {
+    "Śniadanie": shelter?.boardBreakfastPrice ?? 0,
+    "Śniadanie i kolacja": shelter?.boardHalfBoardPrice ?? 0,
+    "Pełne wyżywienie": shelter?.boardFullBoardPrice ?? 0,
+  };
   const estimatedPrice = (() => {
     if (!selectedAvail || nights === 0) return null;
     const g = Number(form.guestCount) || 1;
@@ -326,9 +330,9 @@ export default function ShelterPage({ params }: { params: { id: string } }) {
                     <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Wyżywienie</label>
                     <select className="field" value={form.boardType} onChange={(e) => setForm((c) => ({...c, boardType: e.target.value}))}>
                       <option value="Bez wyżywienia">Bez wyżywienia</option>
-                      <option value="Śniadanie">Śniadanie (+20 zł)</option>
-                      <option value="Śniadanie i kolacja">Śniadanie i kolacja (+45 zł)</option>
-                      <option value="Pełne wyżywienie">Pełne wyżywienie (+65 zł)</option>
+                      <option value="Śniadanie">Śniadanie (+{shelter.boardBreakfastPrice ?? 0} zł)</option>
+                      <option value="Śniadanie i kolacja">Śniadanie i kolacja (+{shelter.boardHalfBoardPrice ?? 0} zł)</option>
+                      <option value="Pełne wyżywienie">Pełne wyżywienie (+{shelter.boardFullBoardPrice ?? 0} zł)</option>
                     </select>
                   </div>
                 </div>

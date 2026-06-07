@@ -62,7 +62,8 @@ class ShelterServiceTest {
         });
         when(roomRepository.findByShelterId(5L)).thenReturn(List.of());
 
-        ShelterRequest request = new ShelterRequest("Nowe", "opis", "Tatry", "123", "a@b.pl", null);
+        ShelterRequest request = new ShelterRequest("Nowe", "opis", "Tatry", "123", "a@b.pl", null,
+                new java.math.BigDecimal("20"), new java.math.BigDecimal("40"), new java.math.BigDecimal("60"));
         ShelterDto dto = shelterService.createShelter(request, host);
 
         assertThat(dto.ownerId()).isEqualTo(2L);

@@ -13,8 +13,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import pl.bnabd.backend.dto.EmployeeDto;
-import pl.bnabd.backend.dto.EmployeeRequest;
 import pl.bnabd.backend.dto.ShelterDto;
 import pl.bnabd.backend.dto.StatsResponse;
 import pl.bnabd.backend.dto.UpdateOwnerRequest;
@@ -23,7 +21,6 @@ import pl.bnabd.backend.dto.UserDto;
 import pl.bnabd.backend.service.AdminService;
 import pl.bnabd.backend.service.CurrentUserProvider;
 import pl.bnabd.backend.service.DatabaseSeedService;
-import pl.bnabd.backend.service.EmployeeService;
 import pl.bnabd.backend.service.ShelterService;
 
 @RestController
@@ -32,19 +29,16 @@ public class AdminController {
 
     private final AdminService adminService;
     private final ShelterService shelterService;
-    private final EmployeeService employeeService;
     private final DatabaseSeedService databaseSeedService;
     private final CurrentUserProvider currentUserProvider;
 
     public AdminController(
             AdminService adminService,
             ShelterService shelterService,
-            EmployeeService employeeService,
             DatabaseSeedService databaseSeedService,
             CurrentUserProvider currentUserProvider) {
         this.adminService = adminService;
         this.shelterService = shelterService;
-        this.employeeService = employeeService;
         this.databaseSeedService = databaseSeedService;
         this.currentUserProvider = currentUserProvider;
     }
@@ -79,23 +73,6 @@ public class AdminController {
     @PatchMapping("/shelters/{id}/owner")
     ShelterDto reassignOwner(@PathVariable long id, @Valid @RequestBody UpdateOwnerRequest request) {
         return shelterService.reassignOwner(id, request.ownerId());
-    }
-
-    @GetMapping("/employees")
-    List<EmployeeDto> listAllEmployees() {
-        return employeeService.findAll();
-    }
-
-    @PostMapping("/shelters/{shelterId}/employees")
-    @ResponseStatus(HttpStatus.CREATED)
-    EmployeeDto addEmployee(@PathVariable long shelterId, @Valid @RequestBody EmployeeRequest request) {
-        return employeeService.add(shelterId, request, currentUserProvider.require());
-    }
-
-    @DeleteMapping("/shelters/{shelterId}/employees/{employeeId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    void deleteEmployee(@PathVariable long shelterId, @PathVariable long employeeId) {
-        employeeService.delete(shelterId, employeeId, currentUserProvider.require());
     }
 
     @PostMapping("/db/reset")

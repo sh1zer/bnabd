@@ -176,38 +176,4 @@ class ReservationServiceTest {
 
         assertThat(dto.status()).isEqualTo(ReservationStatus.CANCELLED);
     }
-
-    // --- confirm ---
-
-    // shelter-owner host -> confirm reservation -> CONFIRMED
-    @Test
-    void shelterOwnerCanConfirmReservation() {
-        Reservation reservation = reservation(50, guest, room, ReservationStatus.PENDING);
-        when(reservationRepository.findById(50L)).thenReturn(Optional.of(reservation));
-
-        ReservationDto dto = reservationService.confirm(50L, host);
-
-        assertThat(dto.status()).isEqualTo(ReservationStatus.CONFIRMED);
-    }
-
-    // host who doesn't own the shelter -> confirm reservation -> forbidden
-    @Test
-    void differentHostCannotConfirmReservation() {
-        Reservation reservation = reservation(50, guest, room, ReservationStatus.PENDING);
-        when(reservationRepository.findById(50L)).thenReturn(Optional.of(reservation));
-        AppUser otherHost = user(4, "host2", UserRole.HOST);
-
-        assertThatThrownBy(() -> reservationService.confirm(50L, otherHost))
-                .isInstanceOf(ForbiddenException.class);
-    }
-
-    // plain user -> confirm reservation -> forbidden
-    @Test
-    void plainUserCannotConfirmReservation() {
-        Reservation reservation = reservation(50, guest, room, ReservationStatus.PENDING);
-        when(reservationRepository.findById(50L)).thenReturn(Optional.of(reservation));
-
-        assertThatThrownBy(() -> reservationService.confirm(50L, guest))
-                .isInstanceOf(ForbiddenException.class);
-    }
 }

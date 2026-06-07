@@ -14,6 +14,7 @@ import pl.bnabd.backend.model.Reservation;
 import pl.bnabd.backend.model.ReservationStatus;
 import pl.bnabd.backend.model.Room;
 import pl.bnabd.backend.model.RoomType;
+import pl.bnabd.backend.model.Shelter;
 import pl.bnabd.backend.model.UserRole;
 import pl.bnabd.backend.repository.ReservationRepository;
 
@@ -71,7 +72,7 @@ public class ReservationService {
 
         String boardType = (request.boardType() == null || request.boardType().isBlank())
                 ? "Bez wyżywienia" : request.boardType();
-        BigDecimal boardSurcharge = boardSurchargePerPersonPerNight(boardType)
+        BigDecimal boardSurcharge = boardSurchargePerPersonPerNight(room.getShelter(), boardType)
                 .multiply(BigDecimal.valueOf(request.guestCount()))
                 .multiply(BigDecimal.valueOf(nights));
         BigDecimal totalPrice = roomCost.add(boardSurcharge);
@@ -105,27 +106,14 @@ public class ReservationService {
         return toDto(reservation);
     }
 
-    public ReservationDto confirm(long id, AppUser currentUser) {
-        Reservation reservation = findEntity(id);
-        // Only an admin or the host who owns the shelter may confirm a booking.
-        AppUser owner = reservation.getRoom().getShelter().getOwner();
-        boolean allowed = currentUser.getRole() == UserRole.ADMIN
-                || (currentUser.getRole() == UserRole.HOST
-                        && owner != null && owner.getId().equals(currentUser.getId()));
-        if (!allowed) {
-            throw new ForbiddenException("Tylko wlasciciel schroniska lub administrator moze potwierdzic rezerwacje.");
-        }
-        reservation.setStatus(ReservationStatus.CONFIRMED);
-        return toDto(reservation);
-    }
-
-    private BigDecimal boardSurchargePerPersonPerNight(String boardType) {
-        return switch (boardType) {
-            case "Śniadanie"            -> new BigDecimal("20");
-            case "Śniadanie i kolacja"  -> new BigDecimal("45");
-            case "Pełne wyżywienie"     -> new BigDecimal("65");
+    private BigDecimal boardSurchargePerPersonPerNight(Shelter shelter, String boardType) {
+        BigDecimal price = switch (boardType) {
+            case "Śniadanie"            -> shelter.getBoardBreakfastPrice();
+            case "Śniadanie i kolacja"  -> shelter.getBoardHalfBoardPrice();
+            case "Pełne wyżywienie"     -> shelter.getBoardFullBoardPrice();
             default                     -> BigDecimal.ZERO;
         };
+        return price == null ? BigDecimal.ZERO : price;
     }
 
     private Reservation findEntity(long id) {

@@ -231,6 +231,9 @@ public class ShelterService {
         shelter.setPhone(request.phone());
         shelter.setEmail(request.email());
         shelter.setImageUrl(request.imageUrl());
+        shelter.setBoardBreakfastPrice(request.boardBreakfastPrice());
+        shelter.setBoardHalfBoardPrice(request.boardHalfBoardPrice());
+        shelter.setBoardFullBoardPrice(request.boardFullBoardPrice());
     }
 
     private void apply(Room room, RoomRequest request) {
@@ -260,7 +263,10 @@ public class ShelterService {
                 shelter.getImageUrl(),
                 shelter.getRating(),
                 beds,
-                price);
+                price,
+                shelter.getBoardBreakfastPrice(),
+                shelter.getBoardHalfBoardPrice(),
+                shelter.getBoardFullBoardPrice());
     }
 
     private RoomDto toDto(Room room) {

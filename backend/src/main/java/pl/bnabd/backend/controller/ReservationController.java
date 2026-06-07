@@ -44,9 +44,4 @@ public class ReservationController {
     ReservationDto cancelReservation(@PathVariable long id) {
         return reservationService.cancel(id, currentUserProvider.require());
     }
-
-    @PatchMapping("/{id}/confirm")
-    ReservationDto confirmReservation(@PathVariable long id) {
-        return reservationService.confirm(id, currentUserProvider.require());
-    }
 }
