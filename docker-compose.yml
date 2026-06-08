@@ -1,0 +1,35 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bnabd
+      POSTGRES_PASSWORD: bnabd
+      POSTGRES_DB: bnabd
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bnabd"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/bnabd
+      DB_USER: bnabd
+      DB_PASS: bnabd
+      JWT_SECRET: change-this-local-development-secret-at-least-32-characters
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
