@@ -26,6 +26,25 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
   return res.json();
 }
 
+function useScrollReveal(deps: unknown[] = []) {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("reveal-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -60px 0px" }
+    );
+    const els = document.querySelectorAll(".reveal:not(.reveal-visible)");
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, deps);
+}
+
 export default function LandingPage() {
   const router = useRouter();
   const [shelters, setShelters] = useState<Shelter[]>([]);
@@ -48,6 +67,8 @@ export default function LandingPage() {
   const [regLogin, setRegLogin] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
+
+  useScrollReveal([shelters.length, loading]);
 
   useEffect(() => {
     setSession(readSession());
@@ -105,18 +126,17 @@ export default function LandingPage() {
   const ranked = [...shelters].sort((a, b) => b.rating - a.rating);
   const displayed = filter.trim()
     ? ranked.filter((s) =>
-        `${s.name} ${s.location}`.toLowerCase().includes(filter.trim().toLowerCase()))
+      `${s.name} ${s.location}`.toLowerCase().includes(filter.trim().toLowerCase()))
     : ranked.slice(0, 6);
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
 
       {/* ── NAVBAR ── */}
-      <nav className={`fixed top-0 z-50 w-full transition-all duration-300 ${
-        scrolled
+      <nav className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled
           ? "border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur"
           : "bg-transparent"
-      }`}>
+        }`}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <button className="flex items-center gap-2.5" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
             <div className="h-7 w-7 rounded bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
@@ -135,9 +155,8 @@ export default function LandingPage() {
             {session ? (
               <>
                 <button
-                  className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-md ${
-                    scrolled ? "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" : "text-white/80 hover:text-white"
-                  }`}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-md ${scrolled ? "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" : "text-white/80 hover:text-white"
+                    }`}
                   onClick={logout}
                 >Wyloguj</button>
                 <button
@@ -148,9 +167,8 @@ export default function LandingPage() {
             ) : (
               <>
                 <button
-                  className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-md ${
-                    scrolled ? "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" : "text-white/80 hover:text-white"
-                  }`}
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-md ${scrolled ? "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" : "text-white/80 hover:text-white"
+                    }`}
                   onClick={() => openModal("login")}
                 >Zaloguj</button>
                 <button
@@ -252,19 +270,82 @@ export default function LandingPage() {
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-6 py-20">
-        <div className="mx-auto max-w-4xl">
-          <p className="mb-12 text-center text-xs font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Jak to działa</p>
-          <div className="grid gap-px bg-zinc-200 dark:bg-zinc-700 sm:grid-cols-3 rounded-xl overflow-hidden">
+      <section className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-6 py-24 overflow-hidden">
+        <div className="mx-auto max-w-5xl">
+          <div className="reveal mb-16 text-center" style={{ transitionDelay: "0ms" }}>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-amber-500 dark:text-amber-400">Jak to działa</p>
+            <h2 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">Trzy kroki do wymarzonego noclegu</h2>
+            <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto">Rezerwacja schroniska nigdy nie była prostsza — od wyszukania do wyjazdu w kilka minut.</p>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-3">
             {[
-              { n: "01", title: "Wyszukaj", desc: "Wpisz lokalizację i przeglądaj dostępne schroniska." },
-              { n: "02", title: "Zarezerwuj", desc: "Wybierz termin, pokój i opcję wyżywienia." },
-              { n: "03", title: "Jedź", desc: "Otrzymaj potwierdzenie i wyrusz w góry." },
-            ].map(({ n, title, desc }) => (
-              <div key={n} className="bg-white dark:bg-zinc-900 p-8">
-                <p className="mb-4 text-xs font-bold text-zinc-300 dark:text-zinc-600">{n}</p>
-                <h3 className="mb-2 text-base font-bold">{title}</h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{desc}</p>
+              {
+                n: "01",
+                icon: (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                  </svg>
+                ),
+                color: "from-blue-500/20 to-blue-600/10 dark:from-blue-500/15 dark:to-blue-600/5",
+                iconBg: "bg-blue-500/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400",
+                accent: "border-blue-200 dark:border-blue-500/20",
+                title: "Wyszukaj schronisko",
+                desc: "Wpisz lokalizację, wybierz daty i liczbę osób. Przeglądaj schroniska z ocenami i zdjęciami.",
+                delay: "0ms",
+              },
+              {
+                n: "02",
+                icon: (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                ),
+                color: "from-amber-500/20 to-amber-600/10 dark:from-amber-500/15 dark:to-amber-600/5",
+                iconBg: "bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                accent: "border-amber-200 dark:border-amber-500/20",
+                title: "Zarezerwuj termin",
+                desc: "Wybierz pokój, termin pobytu i opcję wyżywienia. Rezerwacja online bez pośredników i prowizji.",
+                delay: "100ms",
+              },
+              {
+                n: "03",
+                icon: (
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
+                  </svg>
+                ),
+                color: "from-emerald-500/20 to-emerald-600/10 dark:from-emerald-500/15 dark:to-emerald-600/5",
+                iconBg: "bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                accent: "border-emerald-200 dark:border-emerald-500/20",
+                title: "Wyrusz w góry",
+                desc: "Otrzymaj potwierdzenie rezerwacji i wyrusz w trasę. Dobrej wędrówki!",
+                delay: "200ms",
+              },
+            ].map(({ n, icon, color, iconBg, accent, title, desc, delay }, i) => (
+              <div
+                key={n}
+                className={`reveal group relative overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 p-7 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${accent}`}
+                style={{ transitionDelay: delay }}
+              >
+                <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br opacity-60 ${color}`} />
+                <div className="relative">
+                  <div className="mb-5 flex items-center justify-between">
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconBg}`}>
+                      {icon}
+                    </div>
+                    <span className="text-4xl font-black text-zinc-100 dark:text-zinc-800 select-none">{n}</span>
+                  </div>
+                  <h3 className="mb-2 text-base font-bold text-zinc-900 dark:text-zinc-100">{title}</h3>
+                  <p className="text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{desc}</p>
+                </div>
+                {i < 2 && (
+                  <div className="absolute -right-3 top-1/2 hidden -translate-y-1/2 sm:block text-zinc-200 dark:text-zinc-700">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -274,9 +355,11 @@ export default function LandingPage() {
       {/* ── REGIONS ── */}
       <section className="px-6 py-20">
         <div className="mx-auto max-w-6xl">
-          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Odkrywaj</p>
-          <h2 className="mb-12 text-center text-2xl font-bold tracking-tight">Popularne regiony</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="reveal mb-12 text-center">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Odkrywaj</p>
+            <h2 className="text-2xl font-bold tracking-tight">Popularne regiony</h2>
+          </div>
+          <div className="reveal grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6" style={{ transitionDelay: "80ms" }}>
             {["Tatry", "Beskidy", "Karkonosze", "Bieszczady", "Sudety", "Gorce"].map((r) => (
               <button
                 key={r}
@@ -294,7 +377,7 @@ export default function LandingPage() {
       {/* ── SHELTERS ── */}
       <section ref={sheltersRef} className="px-6 py-20" id="schroniska">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="reveal mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-2xl font-bold tracking-tight">Polecane schroniska</h2>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -315,10 +398,11 @@ export default function LandingPage() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {displayed.map((s) => (
+            {displayed.map((s, idx) => (
               <div
                 key={s.id}
-                className="group overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-md dark:hover:shadow-zinc-900/50 cursor-pointer"
+                className="reveal group overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-md dark:hover:shadow-zinc-900/50 cursor-pointer"
+                style={{ transitionDelay: `${idx * 60}ms` }}
                 onClick={() => router.push(`/shelter/${s.id}`)}
               >
                 <div className="relative h-48 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
@@ -408,22 +492,20 @@ export default function LandingPage() {
               {(["login", "register"] as const).map((tab) => (
                 <button
                   key={tab}
-                  className={`flex-1 rounded-md py-2 text-sm font-semibold transition ${
-                    authTab === tab
+                  className={`flex-1 rounded-md py-2 text-sm font-semibold transition ${authTab === tab
                       ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm"
                       : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-                  }`}
+                    }`}
                   onClick={() => { setAuthTab(tab); setError(""); }}
                 >{tab === "login" ? "Logowanie" : "Rejestracja"}</button>
               ))}
             </div>
 
             {error && (
-              <div className={`mb-4 rounded-lg px-3 py-2.5 text-sm ${
-                error.startsWith("✓")
+              <div className={`mb-4 rounded-lg px-3 py-2.5 text-sm ${error.startsWith("✓")
                   ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400"
                   : "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400"
-              }`}>
+                }`}>
                 {error}
               </div>
             )}
@@ -438,11 +520,11 @@ export default function LandingPage() {
                 <div className="mt-5">
                   <p className="mb-2 text-xs font-medium text-zinc-400 dark:text-zinc-500">Konta demo</p>
                   <div className="space-y-1.5">
-                    {[["admin","admin123","ADMIN"],["host","host123","HOST"],["user","user123","USER"]].map(([l,p,r]) => (
+                    {[["admin", "admin123", "ADMIN"], ["host", "host123", "HOST"], ["user", "user123", "USER"]].map(([l, p, r]) => (
                       <button key={l}
                         className="w-full rounded-md border border-zinc-100 dark:border-zinc-800 px-3 py-2 text-left text-xs text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition flex items-center gap-2"
                         onClick={() => { setLoginLogin(l); setLoginPassword(p); }}>
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${r==="ADMIN"?"bg-red-50 dark:bg-red-950 text-red-500":r==="HOST"?"bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400":"bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"}`}>{r}</span>
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${r === "ADMIN" ? "bg-red-50 dark:bg-red-950 text-red-500" : r === "HOST" ? "bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400" : "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"}`}>{r}</span>
                         {l} · {p}
                       </button>
                     ))}
