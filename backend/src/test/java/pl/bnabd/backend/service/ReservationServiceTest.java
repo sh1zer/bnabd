@@ -58,7 +58,7 @@ class ReservationServiceTest {
         when(reservationRepository.save(any(Reservation.class))).thenAnswer(call -> call.getArgument(0));
 
         CreateReservationRequest request = new CreateReservationRequest(
-                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null);
+                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null, null);
 
         ReservationDto dto = reservationService.create(request, guest);
 
@@ -73,7 +73,7 @@ class ReservationServiceTest {
     @Test
     void createRejectsEndDateNotAfterStart() {
         CreateReservationRequest request = new CreateReservationRequest(
-                100L, LocalDate.of(2026, 6, 3), LocalDate.of(2026, 6, 3), 2, null);
+                100L, LocalDate.of(2026, 6, 3), LocalDate.of(2026, 6, 3), 2, null, null);
 
         assertThatThrownBy(() -> reservationService.create(request, guest))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -85,7 +85,7 @@ class ReservationServiceTest {
     void createRejectsGuestCountAboveCapacity() {
         when(shelterService.findRoomById(100L)).thenReturn(room);
         CreateReservationRequest request = new CreateReservationRequest(
-                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 5, null);
+                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 5, null, null);
 
         assertThatThrownBy(() -> reservationService.create(request, guest))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -98,7 +98,7 @@ class ReservationServiceTest {
         when(shelterService.findRoomById(100L)).thenReturn(room);
         when(reservationRepository.existsOverlapping(eq(100L), any(), any())).thenReturn(true);
         CreateReservationRequest request = new CreateReservationRequest(
-                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null);
+                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null, null);
 
         assertThatThrownBy(() -> reservationService.create(request, guest))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -116,7 +116,7 @@ class ReservationServiceTest {
         when(reservationRepository.save(any(Reservation.class))).thenAnswer(call -> call.getArgument(0));
 
         CreateReservationRequest request = new CreateReservationRequest(
-                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null);
+                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null, null);
 
         ReservationDto dto = reservationService.create(request, guest);
 
@@ -133,7 +133,7 @@ class ReservationServiceTest {
         when(reservationRepository.sumOverlappingGuests(eq(100L), any(), any())).thenReturn(7);
 
         CreateReservationRequest request = new CreateReservationRequest(
-                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null);
+                100L, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), 2, null, null);
 
         assertThatThrownBy(() -> reservationService.create(request, guest))
                 .isInstanceOf(IllegalArgumentException.class);

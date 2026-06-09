@@ -86,6 +86,10 @@ public class ReservationService {
         reservation.setTotalPrice(totalPrice);
         reservation.setBoardType(boardType);
         reservation.setStatus(ReservationStatus.PENDING);
+        if (currentUser.getRole() != UserRole.USER
+                && request.guestName() != null && !request.guestName().isBlank()) {
+            reservation.setGuestName(request.guestName().trim());
+        }
 
         return toDto(reservationRepository.save(reservation));
     }
@@ -137,6 +141,7 @@ public class ReservationService {
                 reservation.getTotalPrice(),
                 reservation.getStatus(),
                 reservation.getBoardType(),
+                reservation.getGuestName(),
                 reservation.getCreatedAt());
     }
 }

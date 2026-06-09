@@ -19,5 +19,6 @@ public record ReservationDto(
         BigDecimal totalPrice,
         ReservationStatus status,
         String boardType,
+        String guestName,
         Instant createdAt) {
 }

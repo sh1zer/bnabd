@@ -49,6 +49,8 @@ public class Reservation {
 
     private String boardType;
 
+    private String guestName;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -128,6 +130,14 @@ public class Reservation {
 
     public void setBoardType(String boardType) {
         this.boardType = boardType;
+    }
+
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public void setGuestName(String guestName) {
+        this.guestName = guestName;
     }
 
     public Instant getCreatedAt() {

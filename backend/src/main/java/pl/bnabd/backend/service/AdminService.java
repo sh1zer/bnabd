@@ -1,7 +1,6 @@
 package pl.bnabd.backend.service;
 
 import java.math.BigDecimal;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
@@ -86,14 +85,14 @@ public class AdminService {
         List<StatsResponse.MonthlyCount> monthlyCounts = IntStream.rangeClosed(1, 12)
                 .mapToObj(month -> new StatsResponse.MonthlyCount(
                         month,
-                        reservations.stream().filter(reservation -> createdMonth(reservation) == month).count()))
+                        reservations.stream().filter(reservation -> stayMonth(reservation) == month).count()))
                 .toList();
 
         List<StatsResponse.MonthlyRevenue> monthlyRevenue = IntStream.rangeClosed(1, 12)
                 .mapToObj(month -> new StatsResponse.MonthlyRevenue(
                         month,
                         reservations.stream()
-                                .filter(reservation -> createdMonth(reservation) == month)
+                                .filter(reservation -> stayMonth(reservation) == month)
                                 .map(Reservation::getTotalPrice)
                                 .reduce(BigDecimal.ZERO, BigDecimal::add)))
                 .toList();
@@ -109,7 +108,7 @@ public class AdminService {
                 monthlyRevenue);
     }
 
-    private int createdMonth(Reservation reservation) {
-        return reservation.getCreatedAt().atZone(ZoneOffset.UTC).getMonthValue();
+    private int stayMonth(Reservation reservation) {
+        return reservation.getStartDate().getMonthValue();
     }
 }

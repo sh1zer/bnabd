@@ -10,5 +10,6 @@ public record CreateReservationRequest(
         @NotNull @FutureOrPresent LocalDate startDate,
         @NotNull @FutureOrPresent LocalDate endDate,
         @Min(1) int guestCount,
-        String boardType) {
+        String boardType,
+        String guestName) {
 }

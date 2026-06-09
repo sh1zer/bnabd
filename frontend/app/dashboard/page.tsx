@@ -12,7 +12,7 @@ type Session     = { token: string; userId: number; login: string; email: string
 type Shelter     = { id: number; ownerId: number; name: string; description: string; location: string; phone: string; email: string; imageUrl: string; rating: number; beds: number; price: string; boardBreakfastPrice: number | null; boardHalfBoardPrice: number | null; boardFullBoardPrice: number | null };
 type RoomType    = "WHOLE" | "SHARED";
 type Room        = { id: number; shelterId: number; shelterName: string; name: string; capacity: number; roomType: RoomType; pricePerNight: number };
-type Reservation = { id: number; userId: number; userLogin: string; roomId: number; roomName: string; shelterId: number; shelterName: string; startDate: string; endDate: string; guestCount: number; totalPrice: number; status: "PENDING"|"CONFIRMED"|"CANCELLED"; boardType: string };
+type Reservation = { id: number; userId: number; userLogin: string; roomId: number; roomName: string; shelterId: number; shelterName: string; startDate: string; endDate: string; guestCount: number; totalPrice: number; status: "PENDING"|"CONFIRMED"|"CANCELLED"; boardType: string; guestName: string | null };
 type Review      = { id: number; userId: number; userLogin: string; shelterId: number; shelterName: string; rating: number; comment: string; createdAt: string };
 type UserRecord  = { id: number; login: string; email: string; role: "USER"|"HOST"|"ADMIN"; createdAt: string };
 type Stats       = { users: number; shelters: number; rooms: number; reservations: number; pendingReservations: number; revenue: number; monthlyReservations: { month: number; count: number }[]; monthlyRevenue: { month: number; revenue: number }[] };
@@ -51,6 +51,11 @@ export default function Dashboard() {
   const [hostStats, setHostStats]                         = useState<ShelterStats | null>(null);
   const [msg, setMsg]                                     = useState("");
   const [msgError, setMsgError]                           = useState(false);
+  const [resSearch, setResSearch]                         = useState("");
+  const [expandedShelters, setExpandedShelters]           = useState<Set<number>>(new Set());
+  const [walkInOpen, setWalkInOpen]                       = useState(false);
+  const [walkInRooms, setWalkInRooms]                     = useState<Room[]>([]);
+  const [walkInF, setWalkInF]                             = useState({ shelterId: "", roomId: "", startDate: "", endDate: "", guestCount: "1", boardType: "Bez wyżywienia", guestName: "" });
 
   // Forms
   const [reviewRating, setReviewRating]   = useState("5");
@@ -66,6 +71,19 @@ export default function Dashboard() {
       .filter((r) => r.status !== "CANCELLED" && !seen.has(r.shelterId) && seen.add(r.shelterId))
       .map((r) => ({ id: r.shelterId, name: r.shelterName, location: shelters.find((s) => s.id === r.shelterId)?.location ?? "" }));
   }, [reservations, shelters]);
+  const reservationsByShelter = useMemo(() => {
+    const groups = new Map<number, { shelterId: number; shelterName: string; items: Reservation[] }>();
+    for (const r of reservations) {
+      const g = groups.get(r.shelterId) ?? { shelterId: r.shelterId, shelterName: r.shelterName, items: [] };
+      g.items.push(r);
+      groups.set(r.shelterId, g);
+    }
+    return Array.from(groups.values()).sort((a, b) => a.shelterName.localeCompare(b.shelterName));
+  }, [reservations]);
+  const filteredReservationGroups = useMemo(() => {
+    const q = resSearch.trim().toLowerCase();
+    return q ? reservationsByShelter.filter((g) => g.shelterName.toLowerCase().includes(q)) : reservationsByShelter;
+  }, [reservationsByShelter, resSearch]);
   const chartData     = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
   const revenueData   = (stats?.monthlyRevenue ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Przychód: Math.round(d.revenue) }));
   const hostChartData = (hostStats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
@@ -126,6 +144,10 @@ export default function Dashboard() {
 
   function logout() { localStorage.removeItem("bnabd_session"); router.push("/"); }
 
+  function toggleShelter(id: number) {
+    setExpandedShelters((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  }
+
   async function act(fn: () => Promise<void>) {
     try { await fn(); } catch (e) { notify(e instanceof Error ? e.message : "Błąd.", true); }
   }
@@ -149,6 +171,27 @@ export default function Dashboard() {
       await call(`/api/reservations/${id}/cancel`, { method: "PATCH" });
       await load<Reservation[]>("/api/reservations", setReservations);
       if (session?.role === "ADMIN") await load<Stats>("/api/admin/stats", setStats);
+    });
+  }
+
+  function selectWalkInShelter(shelterId: string) {
+    setWalkInF((c) => ({ ...c, shelterId, roomId: "" }));
+    setWalkInRooms([]);
+    if (shelterId) load<Room[]>(`/api/shelters/${shelterId}/rooms`, setWalkInRooms);
+  }
+
+  async function createWalkIn(e: FormEvent) {
+    e.preventDefault();
+    await act(async () => {
+      await call("/api/reservations", { method: "POST", body: JSON.stringify({
+        roomId: Number(walkInF.roomId), startDate: walkInF.startDate, endDate: walkInF.endDate,
+        guestCount: Number(walkInF.guestCount), boardType: walkInF.boardType, guestName: walkInF.guestName,
+      }) });
+      notify("Rezerwacja dodana.");
+      setWalkInF({ shelterId: "", roomId: "", startDate: "", endDate: "", guestCount: "1", boardType: "Bez wyżywienia", guestName: "" });
+      setWalkInRooms([]);
+      setWalkInOpen(false);
+      await load<Reservation[]>("/api/reservations", setReservations);
     });
   }
 
@@ -301,43 +344,132 @@ export default function Dashboard() {
           {/* ══════ RESERVATIONS ══════ */}
           {nav === "reservations" && (
             <div className="max-w-5xl space-y-4">
-              <p className="text-xs text-zinc-400">{reservations.length} pozycji</p>
+              {(reservations.length > 0 || session.role !== "USER") && (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {reservations.length > 0 ? (
+                    <input
+                      className="field max-w-xs"
+                      value={resSearch}
+                      onChange={(e) => setResSearch(e.target.value)}
+                      placeholder="Szukaj schroniska..."
+                    />
+                  ) : <span />}
+                  {session.role !== "USER" && (
+                    <button className="btn-secondary h-9 px-3 text-xs" onClick={() => setWalkInOpen((o) => !o)}>
+                      {walkInOpen ? "Anuluj" : "+ Rezerwacja walk-in"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {walkInOpen && session.role !== "USER" && (() => {
+                const sh = shelters.find((s) => String(s.id) === walkInF.shelterId);
+                return (
+                  <form className="grid gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:grid-cols-2" onSubmit={createWalkIn}>
+                    <div className="sm:col-span-2">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Imię i nazwisko gościa</label>
+                      <input className="field" value={walkInF.guestName} onChange={(e) => setWalkInF((c) => ({ ...c, guestName: e.target.value }))} placeholder="np. Jan Kowalski" required />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Schronisko</label>
+                      <select className="field" value={walkInF.shelterId} onChange={(e) => selectWalkInShelter(e.target.value)} required>
+                        <option value="">Wybierz...</option>
+                        {hostShelters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Pokój</label>
+                      <select className="field" value={walkInF.roomId} onChange={(e) => setWalkInF((c) => ({ ...c, roomId: e.target.value }))} required disabled={!walkInF.shelterId}>
+                        <option value="">{walkInF.shelterId ? "Wybierz..." : "Najpierw schronisko"}</option>
+                        {walkInRooms.map((r) => <option key={r.id} value={r.id}>{r.name} ({r.capacity} miejsc, {r.pricePerNight} zł)</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Od</label>
+                      <input className="field" type="date" value={walkInF.startDate} onChange={(e) => setWalkInF((c) => ({ ...c, startDate: e.target.value }))} required />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Do</label>
+                      <input className="field" type="date" value={walkInF.endDate} onChange={(e) => setWalkInF((c) => ({ ...c, endDate: e.target.value }))} required />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Liczba gości</label>
+                      <input className="field" type="number" min="1" value={walkInF.guestCount} onChange={(e) => setWalkInF((c) => ({ ...c, guestCount: e.target.value }))} required />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Wyżywienie</label>
+                      <select className="field" value={walkInF.boardType} onChange={(e) => setWalkInF((c) => ({ ...c, boardType: e.target.value }))}>
+                        <option value="Bez wyżywienia">Bez wyżywienia</option>
+                        <option value="Śniadanie">Śniadanie (+{sh?.boardBreakfastPrice ?? 0} zł)</option>
+                        <option value="Śniadanie i kolacja">Śniadanie i kolacja (+{sh?.boardHalfBoardPrice ?? 0} zł)</option>
+                        <option value="Pełne wyżywienie">Pełne wyżywienie (+{sh?.boardFullBoardPrice ?? 0} zł)</option>
+                      </select>
+                    </div>
+                    <button className="btn-primary sm:col-span-2" type="submit">Dodaj rezerwację</button>
+                  </form>
+                );
+              })()}
+
               {reservations.length === 0 ? (
                 <div className="py-16 text-center text-sm text-zinc-400">Brak rezerwacji.</div>
+              ) : filteredReservationGroups.length === 0 ? (
+                <div className="py-16 text-center text-sm text-zinc-400">Brak schronisk pasujących do „{resSearch}”.</div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-                  <table className="w-full min-w-[700px]">
-                      <thead>
-                        <tr>
-                          <th className="table-head">Gość</th>
-                          <th className="table-head">Schronisko · Pokój</th>
-                          <th className="table-head">Termin</th>
-                          <th className="table-head">Wyżywienie</th>
-                          <th className="table-head">Kwota</th>
-                          <th className="table-head">Status</th>
-                          <th className="table-head"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reservations.map((r) => (
-                          <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40">
-                            <td className="table-cell font-medium">{r.userLogin}</td>
-                            <td className="table-cell">
-                              <span className="font-medium">{r.shelterName}</span>
-                              <span className="block text-xs text-zinc-400">{r.roomName}</span>
-                            </td>
-                            <td className="table-cell text-xs text-zinc-500">{formatDate(r.startDate)} → {formatDate(r.endDate)}</td>
-                            <td className="table-cell text-xs text-zinc-500">{r.boardType ?? "Bez wyżywienia"}</td>
-                            <td className="table-cell font-semibold">{r.totalPrice} zł</td>
-                            <td className="table-cell"><RStatus status={r.status} /></td>
-                            <td className="table-cell">
-                              {r.status !== "CANCELLED" && <button className="btn-sm-danger" onClick={() => cancelReservation(r.id)}>Anuluj</button>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="space-y-3">
+                  {filteredReservationGroups.map((group) => {
+                        const total = group.items.filter((r) => r.status !== "CANCELLED").reduce((sum, r) => sum + r.totalPrice, 0);
+                        const open = expandedShelters.has(group.shelterId);
+                        return (
+                          <section key={group.shelterId} className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            <button
+                              onClick={() => toggleShelter(group.shelterId)}
+                              className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+                            >
+                              <span className="flex items-center gap-2.5">
+                                <ChevronIcon className={`h-4 w-4 flex-shrink-0 text-zinc-400 transition-transform ${open ? "rotate-90" : ""}`} />
+                                <span className="text-sm font-semibold">{group.shelterName}</span>
+                              </span>
+                              <span className="text-xs text-zinc-400">{group.items.length} rez. · {total} zł</span>
+                            </button>
+                            {open && (
+                              <div className="overflow-x-auto border-t border-zinc-100 dark:border-zinc-800">
+                                <table className="w-full min-w-[640px]">
+                                  <thead>
+                                    <tr>
+                                      <th className="table-head">Gość</th>
+                                      <th className="table-head">Pokój</th>
+                                      <th className="table-head">Termin</th>
+                                      <th className="table-head">Wyżywienie</th>
+                                      <th className="table-head">Kwota</th>
+                                      <th className="table-head">Status</th>
+                                      <th className="table-head"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {group.items.map((r) => (
+                                      <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40">
+                                        <td className="table-cell font-medium">
+                                          {r.guestName ?? r.userLogin}
+                                          {r.guestName && <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-zinc-400">walk-in</span>}
+                                        </td>
+                                        <td className="table-cell">{r.roomName}</td>
+                                        <td className="table-cell text-xs text-zinc-500">{formatDate(r.startDate)} → {formatDate(r.endDate)}</td>
+                                        <td className="table-cell text-xs text-zinc-500">{r.boardType ?? "Bez wyżywienia"}</td>
+                                        <td className="table-cell font-semibold">{r.totalPrice} zł</td>
+                                        <td className="table-cell"><RStatus status={r.status} /></td>
+                                        <td className="table-cell">
+                                          {r.status !== "CANCELLED" && <button className="btn-sm-danger" onClick={() => cancelReservation(r.id)}>Anuluj</button>}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </section>
+                        );
+                      })}
+                </div>
               )}
             </div>
           )}
@@ -717,6 +849,9 @@ function LogoutIcon({ className }: { className?: string }) {
 }
 function MenuIcon({ className }: { className?: string }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>;
+}
+function ChevronIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6"/></svg>;
 }
 
 function RStatus({ status }: { status: Reservation["status"] }) {

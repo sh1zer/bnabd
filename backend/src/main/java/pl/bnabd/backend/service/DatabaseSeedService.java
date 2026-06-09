@@ -223,11 +223,12 @@ public class DatabaseSeedService implements CommandLineRunner {
         }
 
         // --- Reservations ---------------------------------------------------
-        // Each room gets a handful of non-overlapping stays spread across the past
-        // year (plus a few upcoming), so the monthly admin charts have real shape.
+        // Each room gets a handful of non-overlapping stays spread across the 2026
+        // calendar year, so the monthly admin charts have real shape.
         LocalDate today = LocalDate.now();
+        LocalDate seasonEnd = LocalDate.of(2026, 12, 31);
         for (Room room : rooms) {
-            LocalDate cursor = today.minusDays(345);
+            LocalDate cursor = LocalDate.of(2026, 1, 1);
             int target = 2 + rnd.nextInt(4); // 2..5 stays per room
             int made = 0;
             while (made < target) {
@@ -236,7 +237,7 @@ public class DatabaseSeedService implements CommandLineRunner {
                 LocalDate start = cursor;
                 LocalDate end = start.plusDays(nights);
                 cursor = end; // next stay starts no earlier than this one ends -> no overlap
-                if (start.isAfter(today.plusDays(75))) {
+                if (start.isAfter(seasonEnd)) {
                     break; // stop at the booking horizon
                 }
 
