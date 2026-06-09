@@ -65,9 +65,12 @@ export default function Dashboard() {
   const [reviewComment, setReviewComment] = useState("");
   const [hostShelterF, setHostShelterF]   = useState({ name: "", description: "", location: "", phone: "", email: "", imageUrl: "", boardBreakfastPrice: "20", boardHalfBoardPrice: "45", boardFullBoardPrice: "65" });
   const [hostRoomF, setHostRoomF]         = useState({ name: "", capacity: "2", roomType: "WHOLE", pricePerNight: "50" });
+  const [editingShelterId, setEditingShelterId] = useState<number | null>(null);
+  const [editingRoomId, setEditingRoomId]       = useState<number | null>(null);
   const [profileF, setProfileF]           = useState({ email: "", currentPassword: "", newPassword: "" });
 
   const hostShelters  = useMemo(() => session?.role === "ADMIN" ? shelters : shelters.filter((s) => s.ownerId === session?.userId), [shelters, session]);
+  const selectedShelter = useMemo(() => hostShelters.find((s) => s.id === selectedHostShelterId) ?? null, [hostShelters, selectedHostShelterId]);
   const visitedShelters = useMemo(() => {
     const seen = new Set<number>();
     return reservations
@@ -222,35 +225,90 @@ export default function Dashboard() {
     });
   }
 
-  async function createHostShelter(e: FormEvent) {
+  function cancelEditShelter() {
+    setEditingShelterId(null);
+    setHostShelterF({ name: "", description: "", location: "", phone: "", email: "", imageUrl: "", boardBreakfastPrice: "20", boardHalfBoardPrice: "45", boardFullBoardPrice: "65" });
+  }
+
+  function startEditShelter(s: Shelter) {
+    setEditingShelterId(s.id);
+    setHostShelterF({
+      name: s.name, description: s.description, location: s.location,
+      phone: s.phone, email: s.email, imageUrl: s.imageUrl,
+      boardBreakfastPrice: s.boardBreakfastPrice != null ? String(s.boardBreakfastPrice) : "",
+      boardHalfBoardPrice: s.boardHalfBoardPrice != null ? String(s.boardHalfBoardPrice) : "",
+      boardFullBoardPrice: s.boardFullBoardPrice != null ? String(s.boardFullBoardPrice) : "",
+    });
+    if (typeof document !== "undefined") document.getElementById("host-shelter-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function saveHostShelter(e: FormEvent) {
     e.preventDefault();
     const num = (v: string) => (v.trim() === "" ? null : Number(v));
+    const body = JSON.stringify({
+      name: hostShelterF.name, description: hostShelterF.description, location: hostShelterF.location,
+      phone: hostShelterF.phone, email: hostShelterF.email, imageUrl: hostShelterF.imageUrl,
+      boardBreakfastPrice: num(hostShelterF.boardBreakfastPrice),
+      boardHalfBoardPrice: num(hostShelterF.boardHalfBoardPrice),
+      boardFullBoardPrice: num(hostShelterF.boardFullBoardPrice),
+    });
     await act(async () => {
-      await call("/api/shelters", { method: "POST", body: JSON.stringify({
-        name: hostShelterF.name, description: hostShelterF.description, location: hostShelterF.location,
-        phone: hostShelterF.phone, email: hostShelterF.email, imageUrl: hostShelterF.imageUrl,
-        boardBreakfastPrice: num(hostShelterF.boardBreakfastPrice),
-        boardHalfBoardPrice: num(hostShelterF.boardHalfBoardPrice),
-        boardFullBoardPrice: num(hostShelterF.boardFullBoardPrice),
-      }) });
-      notify("Schronisko dodane.");
-      setHostShelterF({ name: "", description: "", location: "", phone: "", email: "", imageUrl: "", boardBreakfastPrice: "20", boardHalfBoardPrice: "45", boardFullBoardPrice: "65" });
+      if (editingShelterId) {
+        await call(`/api/shelters/${editingShelterId}`, { method: "PUT", body });
+        notify("Schronisko zaktualizowane.");
+      } else {
+        await call("/api/shelters", { method: "POST", body });
+        notify("Schronisko dodane.");
+      }
+      cancelEditShelter();
       await load<Shelter[]>("/api/shelters", setShelters);
     });
   }
 
-  async function addRoom(e: FormEvent) {
+  async function deleteHostShelter(id: number, name: string) {
+    if (!confirm(`Usunąć "${name}"? Tej operacji nie można cofnąć.`)) return;
+    await act(async () => {
+      await call(`/api/shelters/${id}`, { method: "DELETE" });
+      notify("Schronisko usunięte.");
+      if (editingShelterId === id) cancelEditShelter();
+      if (selectedHostShelterId === id) setSelectedHostShelterId(null);
+      await load<Shelter[]>("/api/shelters", setShelters);
+    });
+  }
+
+  function cancelEditRoom() {
+    setEditingRoomId(null);
+    setHostRoomF({ name: "", capacity: "2", roomType: "WHOLE", pricePerNight: "50" });
+  }
+
+  function startEditRoom(r: Room) {
+    setEditingRoomId(r.id);
+    setHostRoomF({ name: r.name, capacity: String(r.capacity), roomType: r.roomType, pricePerNight: String(r.pricePerNight) });
+  }
+
+  async function saveRoom(e: FormEvent) {
     e.preventDefault();
     if (!selectedHostShelterId) return;
+    const body = JSON.stringify({ name: hostRoomF.name, capacity: Number(hostRoomF.capacity), roomType: hostRoomF.roomType, pricePerNight: Number(hostRoomF.pricePerNight) });
     await act(async () => {
-      await call(`/api/shelters/${selectedHostShelterId}/rooms`, { method: "POST", body: JSON.stringify({ name: hostRoomF.name, capacity: Number(hostRoomF.capacity), roomType: hostRoomF.roomType, pricePerNight: Number(hostRoomF.pricePerNight) }) });
-      notify("Pokój dodany."); setHostRoomF({ name: "", capacity: "2", roomType: "WHOLE", pricePerNight: "50" });
+      if (editingRoomId) {
+        await call(`/api/shelters/${selectedHostShelterId}/rooms/${editingRoomId}`, { method: "PUT", body });
+        notify("Pokój zaktualizowany.");
+      } else {
+        await call(`/api/shelters/${selectedHostShelterId}/rooms`, { method: "POST", body });
+        notify("Pokój dodany.");
+      }
+      cancelEditRoom();
       await load<Room[]>(`/api/shelters/${selectedHostShelterId}/rooms`, setRooms);
     });
   }
 
   async function deleteRoom(shelterId: number, roomId: number) {
-    await act(async () => { await call(`/api/shelters/${shelterId}/rooms/${roomId}`, { method: "DELETE" }); await load<Room[]>(`/api/shelters/${shelterId}/rooms`, setRooms); });
+    await act(async () => {
+      await call(`/api/shelters/${shelterId}/rooms/${roomId}`, { method: "DELETE" });
+      if (editingRoomId === roomId) cancelEditRoom();
+      await load<Room[]>(`/api/shelters/${shelterId}/rooms`, setRooms);
+    });
   }
 
   async function changeRole(userId: number, role: string) {
@@ -592,9 +650,9 @@ export default function Dashboard() {
           {/* ══════ HOST ══════ */}
           {nav === "host" && (session.role === "HOST" || session.role === "ADMIN") && (
             <div className="max-w-4xl space-y-6">
-              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
-                <h2 className="mb-4 text-sm font-semibold">Nowe schronisko</h2>
-                <form className="grid gap-3 sm:grid-cols-2" onSubmit={createHostShelter}>
+              <div id="host-shelter-form" className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
+                <h2 className="mb-4 text-sm font-semibold">{editingShelterId ? "Edytuj schronisko" : "Nowe schronisko"}</h2>
+                <form className="grid gap-3 sm:grid-cols-2" onSubmit={saveHostShelter}>
                   <input className="field" value={hostShelterF.name} onChange={(e) => setHostShelterF((c) => ({...c,name:e.target.value}))} placeholder="Nazwa" required />
                   <input className="field" value={hostShelterF.location} onChange={(e) => setHostShelterF((c) => ({...c,location:e.target.value}))} placeholder="Lokalizacja" required />
                   <input className="field" value={hostShelterF.phone} onChange={(e) => setHostShelterF((c) => ({...c,phone:e.target.value}))} placeholder="Telefon" />
@@ -618,7 +676,10 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <button className="btn-primary sm:col-span-2" type="submit">Dodaj schronisko</button>
+                  <div className="sm:col-span-2 flex gap-2">
+                    <button className="btn-primary flex-1" type="submit">{editingShelterId ? "Zapisz zmiany" : "Dodaj schronisko"}</button>
+                    {editingShelterId && <button type="button" className="btn-secondary" onClick={cancelEditShelter}>Anuluj</button>}
+                  </div>
                 </form>
               </div>
 
@@ -627,7 +688,7 @@ export default function Dashboard() {
                   <h2 className="mb-3 text-sm font-semibold">Moje schroniska</h2>
                   <div className="flex flex-wrap gap-1.5">
                     {hostShelters.map((s) => (
-                      <button key={s.id} onClick={() => setSelectedHostShelterId(s.id)}
+                      <button key={s.id} onClick={() => { setSelectedHostShelterId(s.id); cancelEditRoom(); }}
                         className={`rounded-full border px-3 py-1 text-xs font-medium transition ${selectedHostShelterId===s.id ? "border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500"}`}>
                         {s.name}
                       </button>
@@ -639,6 +700,13 @@ export default function Dashboard() {
                   <div className="py-12 text-center text-sm text-zinc-400">Wybierz schronisko powyżej.</div>
                 ) : (
                   <div className="p-6">
+                    <div className="mb-5 flex items-center justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-4">
+                      <h3 className="truncate text-sm font-semibold">{selectedShelter?.name}</h3>
+                      <div className="flex shrink-0 gap-2">
+                        <button type="button" className="btn-sm-secondary" onClick={() => selectedShelter && startEditShelter(selectedShelter)}>Edytuj dane</button>
+                        <button type="button" className="btn-sm-danger" onClick={() => selectedShelter && deleteHostShelter(selectedShelter.id, selectedShelter.name)}>Usuń schronisko</button>
+                      </div>
+                    </div>
                     <div className="mb-5 flex gap-1 border-b border-zinc-100 dark:border-zinc-800 pb-4">
                       {(["rooms","stats"] as const).map((t) => (
                         <button key={t} onClick={() => setHostSubTab(t)}
@@ -657,11 +725,14 @@ export default function Dashboard() {
                                 <span className="text-sm font-medium">{r.name}</span>
                                 <span className="ml-3 text-xs text-zinc-400">{r.roomType === "SHARED" ? "wspólny" : "cały pokój"} · {r.capacity} miejsc · {r.pricePerNight} zł/{r.roomType === "SHARED" ? "miejsce/" : ""}noc</span>
                               </div>
-                              <button className="btn-sm-danger" onClick={() => deleteRoom(selectedHostShelterId, r.id)}>Usuń</button>
+                              <div className="flex shrink-0 gap-2">
+                                <button className="btn-sm-secondary" onClick={() => startEditRoom(r)}>Edytuj</button>
+                                <button className="btn-sm-danger" onClick={() => deleteRoom(selectedHostShelterId, r.id)}>Usuń</button>
+                              </div>
                             </div>
                           ))}
                         </div>
-                        <form className="grid gap-3 sm:grid-cols-3" onSubmit={addRoom}>
+                        <form className="grid gap-3 sm:grid-cols-3" onSubmit={saveRoom}>
                           <div>
                             <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Nazwa pokoju</label>
                             <input className="field" value={hostRoomF.name} onChange={(e) => setHostRoomF((c) => ({...c,name:e.target.value}))} placeholder="np. Pokój nr 1" required />
@@ -681,7 +752,10 @@ export default function Dashboard() {
                             <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">{hostRoomF.roomType === "SHARED" ? "Cena/miejsce/noc (zł)" : "Cena/noc (zł)"}</label>
                             <input className="field" type="number" min="1" value={hostRoomF.pricePerNight} onChange={(e) => setHostRoomF((c) => ({...c,pricePerNight:e.target.value}))} />
                           </div>
-                          <button className="btn-primary self-end sm:col-span-3" type="submit">Dodaj pokój</button>
+                          <div className="self-end sm:col-span-3 flex gap-2">
+                            <button className="btn-primary flex-1" type="submit">{editingRoomId ? "Zapisz zmiany" : "Dodaj pokój"}</button>
+                            {editingRoomId && <button type="button" className="btn-secondary" onClick={cancelEditRoom}>Anuluj</button>}
+                          </div>
                         </form>
                       </>
                     )}
