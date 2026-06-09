@@ -17,8 +17,8 @@
    CREATE USER bnabd WITH PASSWORD 'bnabd';
    GRANT ALL PRIVILEGES ON DATABASE bnabd TO bnabd;
    ```
-3. Struktura i dane przykładowe zostaną załadowane automatycznie przy pierwszym
-   uruchomieniu backendu. Strukturę można też utworzyć ręcznie skryptem poglądowym:
+3. Schemat i dane testowe tworzą się automatycznie przy pierwszym starcie backendu.
+   Opcjonalnie ręczne utworzenie schematu:
    ```
    psql -U bnabd -d bnabd -f docs/bnabd_init.sql
    ```
@@ -64,7 +64,7 @@ Po inicjalizacji bazy dostępne są konta przykładowe:
 
 # 6. Reset bazy z poziomu aplikacji
 
-Administrator po zalogowaniu w panelu admina może użyć przycisku "Reset bazy", który wywołuje `POST /api/admin/db/reset` i odtwarza strukturę oraz dane przykładowe.
+Przycisk "Reset bazy" w panelu admina wywołuje `POST /api/admin/db/reset` i odtwarza schemat oraz dane testowe.
 
 
 # 7. Wdrożenie na serwer aplikacyjny

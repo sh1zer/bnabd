@@ -10,14 +10,14 @@ Pełny opis projektu znajduje się w katalogu [`docs/`](docs/).
 
 ## Szybki start (Docker — zalecane)
 
-Uruchamia całość — **bazę danych + backend + frontend** — jedną komendą.
+Uruchamia całość jedną komendą.
 Nie trzeba instalować Javy, Mavena, Node ani PostgreSQL. Wystarczy Docker.
 
 ### Wymagania
 
 - **Docker** (na Windows/Mac: [Docker Desktop](https://www.docker.com/products/docker-desktop/), uruchomiony)
 - Wolne porty **3000** i **8080** na hoście
-- Dostęp do internetu przy pierwszym budowaniu (pobranie obrazów i zależności)
+- Internet przy pierwszym budowaniu (pobranie obrazów)
 
 ### Uruchomienie
 
@@ -32,8 +32,7 @@ Następnie otwórz:
 - **Aplikacja:** <http://localhost:3000>
 - **API / Swagger:** <http://localhost:8080/swagger-ui.html>
 
-Baza danych, tabele (Hibernate) i dane testowe (`DatabaseSeedService`) tworzą się
-automatycznie przy pierwszym starcie — nic nie trzeba konfigurować ręcznie.
+Schemat bazy i dane testowe tworzą się automatycznie przy pierwszym starcie.
 
 ### Zatrzymanie
 

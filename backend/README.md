@@ -7,8 +7,8 @@ Spring Boot REST API dla systemu rezerwacji schronisk.
 Domyslna konfiguracja laczy sie z:
 
 - `jdbc:postgresql://localhost:5432/bnabd`
-- user: `postgres`
-- password: `admin`
+- user: `bnabd`
+- password: `bnabd`
 
 Najpierw utworz baze:
 
@@ -16,7 +16,7 @@ Najpierw utworz baze:
 CREATE DATABASE bnabd;
 ```
 
-Po pierwszym starcie aplikacja tworzy tabele przez Hibernate i dodaje dane testowe.
+Schemat i dane testowe tworza sie automatycznie przy pierwszym starcie.
 
 ## Uruchomienie
 
