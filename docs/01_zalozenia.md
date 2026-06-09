@@ -32,7 +32,8 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 ## Funkcjonalności użytkownika niezalogowanego
 - przeglądanie schronisk,
 - wyszukiwanie schronisk,
-- filtrowanie,
+- filtrowanie (lokalizacja, fraza),
+- sortowanie wyników (ocena, cena rosnąco/malejąco, nazwa A-Z),
 - podgląd szczegółów schroniska,
 - rejestracja,
 - logowanie.
@@ -50,7 +51,7 @@ Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
 - zarządzanie schroniskami,
 - zarządzanie pokojami,
 - przegląd wszystkich rezerwacji,
-- generowanie statystyk graficznych (wykresy czasowe — rezerwacje/miesiąc, obłożenie/rok),
+- generowanie statystyk graficznych (wykresy czasowe - rezerwacje/miesiąc, obłożenie/rok),
 - reset i inicjalizacja bazy danych (drop + create + dane przykładowe).
 
 

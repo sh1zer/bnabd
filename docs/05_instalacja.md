@@ -17,7 +17,13 @@
    CREATE USER bnabd WITH PASSWORD 'bnabd';
    GRANT ALL PRIVILEGES ON DATABASE bnabd TO bnabd;
    ```
-3. Struktura i dane przykładowe zostaną załadowane przy pierwszym uruchomieniu backendu (lub ręcznie skryptem inicjalizacyjnym dołączonym do projektu).
+3. Struktura i dane przykładowe zostaną załadowane automatycznie przy pierwszym
+   uruchomieniu backendu. Strukturę można też utworzyć ręcznie skryptem poglądowym:
+   ```
+   psql -U bnabd -d bnabd -f docs/bnabd_init.sql
+   ```
+   (DROP + CREATE tabel z ograniczeniami; samą bazę i użytkownika tworzy
+   `docs/setup-local-postgres.sql`).
 
 
 # 3. Backend (Spring Boot)
@@ -64,7 +70,7 @@ Administrator po zalogowaniu w panelu admina może użyć przycisku "Reset bazy"
 # 7. Wdrożenie na serwer aplikacyjny
 
 Aplikacja może być uruchomiona:
-- jako standalone JAR (wbudowany Tomcat — domyślnie),
+- jako standalone JAR (wbudowany Tomcat - domyślnie),
 - jako WAR na zewnętrznym Tomcat 10+ (po przepakowaniu `pom.xml` na `packaging: war`).
 
 Frontend można zbudować statycznie (`next build && next export`) i serwować z dowolnego serwera HTTP (nginx, Apache).

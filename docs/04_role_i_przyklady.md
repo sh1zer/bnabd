@@ -18,7 +18,17 @@ Użytkownik standardowy może:
 - zarządzać profilem.
 
 
-# 3. Rola ADMIN
+# 3. Rola HOST
+
+Właściciel schroniska (gospodarz) może:
+- dodawać własne schroniska,
+- edytować dane własnych schronisk (opis, kontakt, zdjęcie, cennik wyżywienia),
+- zarządzać pokojami w swoich schroniskach (dodawanie, edycja, usuwanie),
+- przeglądać rezerwacje złożone w swoich schroniskach,
+- zarządzać profilem.
+
+
+# 4. Rola ADMIN
 
 Administrator może:
 - zarządzać użytkownikami,
@@ -29,7 +39,7 @@ Administrator może:
 - resetować bazę danych.
 
 
-# 4. Przypadki użycia użytkownika
+# 5. Przypadki użycia użytkownika
 
 ## Rejestracja
 1. Użytkownik otwiera formularz.
@@ -43,6 +53,13 @@ Administrator może:
 3. System zwraca token JWT.
 
 
+## Przeglądanie i sortowanie schronisk
+1. Użytkownik otwiera listę schronisk.
+2. Opcjonalnie filtruje wyniki po lokalizacji lub frazie wyszukiwania.
+3. Wybiera kryterium sortowania (ocena, cena rosnąco/malejąco, nazwa A-Z).
+4. System prezentuje posortowaną listę.
+
+
 ## Rezerwacja pokoju
 1. Użytkownik wybiera schronisko.
 2. Wybiera pokój.
@@ -50,7 +67,27 @@ Administrator może:
 4. System zapisuje rezerwację.
 
 
-# 5. Przypadki użycia administratora
+# 6. Przypadki użycia gospodarza (HOST)
+
+## Dodanie schroniska
+1. Gospodarz loguje się i otwiera swój panel.
+2. Wprowadza dane schroniska (nazwa, opis, lokalizacja, kontakt, zdjęcie, cennik wyżywienia).
+3. System zapisuje schronisko przypisane do gospodarza jako właściciela.
+
+
+## Zarządzanie pokojami
+1. Gospodarz wybiera jedno ze swoich schronisk.
+2. Dodaje nowy pokój (nazwa, pojemność, typ WHOLE/SHARED, cena za noc) lub edytuje/usuwa istniejący.
+3. System zapisuje zmiany.
+
+
+## Podgląd rezerwacji we własnych schroniskach
+1. Gospodarz otwiera listę rezerwacji.
+2. System wyświetla rezerwacje dotyczące pokoi w schroniskach należących do gospodarza
+   (terminy, liczba gości, status, cena).
+
+
+# 7. Przypadki użycia administratora
 
 ## Dodanie schroniska
 1. Administrator otwiera panel admina.
@@ -63,9 +100,9 @@ Administrator może:
 2. Edytuje lub usuwa konto.
 
 
-# 6. Diagramy UML
+# 8. Diagramy UML
 
-## 6.1. Diagram przypadków użycia — USER
+## 8.1. Diagram przypadków użycia - USER
 
 ```mermaid
 graph LR
@@ -73,7 +110,7 @@ graph LR
     U --> UC1[Rejestracja]
     U --> UC2[Logowanie]
     U --> UC3[Przeglądanie schronisk]
-    U --> UC4[Wyszukiwanie i filtrowanie]
+    U --> UC4[Wyszukiwanie, filtrowanie i sortowanie]
     U --> UC5[Tworzenie rezerwacji]
     U --> UC6[Anulowanie rezerwacji]
     U --> UC7[Dodawanie opinii]
@@ -81,7 +118,7 @@ graph LR
 ```
 
 
-## 6.2. Diagram przypadków użycia — HOST
+## 8.2. Diagram przypadków użycia - HOST
 
 ```mermaid
 graph LR
@@ -94,7 +131,7 @@ graph LR
 ```
 
 
-## 6.3. Diagram przypadków użycia — ADMIN
+## 8.3. Diagram przypadków użycia - ADMIN
 
 ```mermaid
 graph LR
@@ -109,7 +146,7 @@ graph LR
 ```
 
 
-## 6.4. Diagram sekwencji — logowanie
+## 8.4. Diagram sekwencji - logowanie
 
 ```mermaid
 sequenceDiagram
@@ -127,7 +164,7 @@ sequenceDiagram
 ```
 
 
-## 6.5. Diagram sekwencji — tworzenie rezerwacji
+## 8.5. Diagram sekwencji - tworzenie rezerwacji
 
 ```mermaid
 sequenceDiagram
@@ -152,6 +189,7 @@ sequenceDiagram
 ```
 
 
-## 6.6. Diagram encji (ERD)
+## 8.6. Diagram encji (ERD)
 
-Diagram encji wraz z relacjami znajduje się w pliku `docs/obraz-1.png`.
+Aktualny diagram encji wraz z relacjami i ograniczeniami znajduje się
+w `docs/03_baza_danych.md` (diagram Mermaid); wersja graficzna w `docs/obraz-1.png`.

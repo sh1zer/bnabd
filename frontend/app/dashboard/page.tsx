@@ -56,6 +56,9 @@ export default function Dashboard() {
   const [walkInOpen, setWalkInOpen]                       = useState(false);
   const [walkInRooms, setWalkInRooms]                     = useState<Room[]>([]);
   const [walkInF, setWalkInF]                             = useState({ shelterId: "", roomId: "", startDate: "", endDate: "", guestCount: "1", boardType: "Bez wyżywienia", guestName: "" });
+  const [reviewSearch, setReviewSearch]                   = useState("");
+  const [expandedReviewShelters, setExpandedReviewShelters] = useState<Set<number>>(new Set());
+  const [reviewsByShelter, setReviewsByShelter]           = useState<Record<number, Review[]>>({});
 
   // Forms
   const [reviewRating, setReviewRating]   = useState("5");
@@ -84,6 +87,10 @@ export default function Dashboard() {
     const q = resSearch.trim().toLowerCase();
     return q ? reservationsByShelter.filter((g) => g.shelterName.toLowerCase().includes(q)) : reservationsByShelter;
   }, [reservationsByShelter, resSearch]);
+  const filteredReviewShelters = useMemo(() => {
+    const q = reviewSearch.trim().toLowerCase();
+    return q ? hostShelters.filter((s) => s.name.toLowerCase().includes(q)) : hostShelters;
+  }, [hostShelters, reviewSearch]);
   const chartData     = (stats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
   const revenueData   = (stats?.monthlyRevenue ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Przychód: Math.round(d.revenue) }));
   const hostChartData = (hostStats?.monthlyReservations ?? []).map((d) => ({ name: MONTHS[(d.month - 1) % 12], Rez: d.count }));
@@ -146,6 +153,15 @@ export default function Dashboard() {
 
   function toggleShelter(id: number) {
     setExpandedShelters((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  }
+
+  function toggleReviewShelter(id: number) {
+    setExpandedReviewShelters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); }
+      else { next.add(id); if (!(id in reviewsByShelter)) load<Review[]>(`/api/reviews/shelter/${id}`, (v) => setReviewsByShelter((m) => ({ ...m, [id]: v }))); }
+      return next;
+    });
   }
 
   async function act(fn: () => Promise<void>) {
@@ -514,32 +530,60 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="max-w-3xl space-y-4">
-              <div className="flex flex-wrap gap-1.5">
-                {hostShelters.map((s) => (
-                  <button key={s.id} onClick={() => { setReviewShelterId(s.id); load<Review[]>(`/api/reviews/shelter/${s.id}`, setReviews); }}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${reviewShelterId === s.id ? "border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500"}`}>
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-              {!reviewShelterId ? (
-                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-16 text-center text-sm text-zinc-400">Wybierz schronisko.</div>
-              ) : reviews.length === 0 ? (
-                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-16 text-center text-sm text-zinc-400">Brak opinii dla tego schroniska.</div>
+              {hostShelters.length > 0 && (
+                <input
+                  className="field max-w-xs"
+                  value={reviewSearch}
+                  onChange={(e) => setReviewSearch(e.target.value)}
+                  placeholder="Szukaj schroniska..."
+                />
+              )}
+              {hostShelters.length === 0 ? (
+                <div className="py-16 text-center text-sm text-zinc-400">Brak schronisk.</div>
+              ) : filteredReviewShelters.length === 0 ? (
+                <div className="py-16 text-center text-sm text-zinc-400">Brak schronisk pasujących do „{reviewSearch}”.</div>
               ) : (
-                <div className="divide-y divide-zinc-100 dark:divide-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                  {reviews.map((r) => (
-                    <div key={r.id} className="px-6 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <span className="text-sm font-semibold">{r.userLogin}</span>
-                          <span className="ml-2 text-xs text-zinc-400">{formatDate(r.createdAt)}</span>
-                        </div>
-                        <div className="text-xs text-amber-500 font-semibold">{"★".repeat(r.rating)}<span className="text-zinc-200 dark:text-zinc-700">{"★".repeat(5-r.rating)}</span></div>
-                      </div>
-                      <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{r.comment}</p>
-                    </div>
-                  ))}
+                <div className="space-y-3">
+                  {filteredReviewShelters.map((s) => {
+                    const open = expandedReviewShelters.has(s.id);
+                    const list = reviewsByShelter[s.id];
+                    return (
+                      <section key={s.id} className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                        <button
+                          onClick={() => toggleReviewShelter(s.id)}
+                          className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <ChevronIcon className={`h-4 w-4 flex-shrink-0 text-zinc-400 transition-transform ${open ? "rotate-90" : ""}`} />
+                            <span className="text-sm font-semibold">{s.name}</span>
+                          </span>
+                          <span className="text-xs text-zinc-400">{s.rating > 0 ? `★ ${s.rating}` : "Brak ocen"}</span>
+                        </button>
+                        {open && (
+                          list === undefined ? (
+                            <p className="border-t border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs text-zinc-400">Ładowanie...</p>
+                          ) : list.length === 0 ? (
+                            <p className="border-t border-zinc-100 dark:border-zinc-800 px-6 py-4 text-xs text-zinc-400">Brak opinii dla tego schroniska.</p>
+                          ) : (
+                            <div className="divide-y divide-zinc-100 dark:divide-zinc-800 border-t border-zinc-100 dark:border-zinc-800">
+                              {list.map((r) => (
+                                <div key={r.id} className="px-6 py-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <span className="text-sm font-semibold">{r.userLogin}</span>
+                                      <span className="ml-2 text-xs text-zinc-400">{formatDate(r.createdAt)}</span>
+                                    </div>
+                                    <div className="text-xs text-amber-500 font-semibold">{"★".repeat(r.rating)}<span className="text-zinc-200 dark:text-zinc-700">{"★".repeat(5-r.rating)}</span></div>
+                                  </div>
+                                  <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{r.comment}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        )}
+                      </section>
+                    );
+                  })}
                 </div>
               )}
             </div>

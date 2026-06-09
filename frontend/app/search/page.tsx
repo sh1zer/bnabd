@@ -18,6 +18,28 @@ function readSession(): Session | null {
 
 const LOCATIONS = ["Wszystkie", "Tatry", "Beskidy", "Karkonosze", "Bieszczady", "Pieniny", "Góry Sowie"];
 
+const SORT_OPTIONS = [
+  { value: "default",   label: "Domyślnie" },
+  { value: "rating",    label: "Ocena: najwyższa" },
+  { value: "priceAsc",  label: "Cena: od najniższej" },
+  { value: "priceDesc", label: "Cena: od najwyższej" },
+  { value: "name",      label: "Nazwa: A-Z" },
+] as const;
+
+type SortBy = (typeof SORT_OPTIONS)[number]["value"];
+
+function sortShelters(shelters: Shelter[], sortBy: SortBy): Shelter[] {
+  const list = [...shelters];
+  const price = (s: Shelter) => parseFloat(s.price) || 0;
+  switch (sortBy) {
+    case "rating":    return list.sort((a, b) => b.rating - a.rating);
+    case "priceAsc":  return list.sort((a, b) => price(a) - price(b));
+    case "priceDesc": return list.sort((a, b) => price(b) - price(a));
+    case "name":      return list.sort((a, b) => a.name.localeCompare(b.name, "pl"));
+    default:          return list;
+  }
+}
+
 function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -28,6 +50,7 @@ function SearchContent() {
   const [input, setInput]       = useState(searchParams.get("location") ?? "");
   const [session, setSession]   = useState<Session | null>(null);
   const [activeLocation, setActiveLocation] = useState(searchParams.get("location") || "Wszystkie");
+  const [sortBy, setSortBy] = useState<SortBy>("default");
 
   useEffect(() => { setSession(readSession()); }, []);
 
@@ -56,6 +79,7 @@ function SearchContent() {
   }
 
   const count = shelters.length;
+  const sorted = sortShelters(shelters, sortBy);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
@@ -125,11 +149,23 @@ function SearchContent() {
         </div>
       </div>
 
-      {/* ── RESULTS COUNT ── */}
-      <div className="mx-auto max-w-6xl px-5 py-3">
+      {/* ── RESULTS COUNT + SORT ── */}
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
           {loading ? "Wyszukiwanie..." : `${count} ${count === 1 ? "schronisko" : count < 5 ? "schroniska" : "schronisk"}${query && query !== "Wszystkie" ? ` · ${query}` : ""}`}
         </p>
+        <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="hidden sm:block">Sortuj:</span>
+          <select
+            className="h-8 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition cursor-pointer"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {/* ── LISTINGS ── */}
@@ -148,7 +184,7 @@ function SearchContent() {
           </div>
         ) : (
           <div className="space-y-3">
-            {shelters.map((s) => (
+            {sorted.map((s) => (
               <ShelterCard key={s.id} shelter={s} onClick={() => router.push(`/shelter/${s.id}`)} />
             ))}
           </div>

@@ -20,7 +20,7 @@ Tabela przechowuje dane użytkowników systemu.
 ### Zawiera:
 - login,
 - email,
-- hasło,
+- hash hasła (BCrypt - hasło jawne nigdy nie jest przechowywane),
 - rolę użytkownika,
 - datę utworzenia konta.
 
@@ -54,8 +54,8 @@ Tabela przechowuje dane pokoi dostępnych w schroniskach.
 - cenę za noc.
 
 ### Typy pokoi:
-- **WHOLE** (cały pokój) — wynajmowany w całości; jedna rezerwacja blokuje pokój w danym terminie. Cena stała za noc.
-- **SHARED** (dormitorium) — miejsca sprzedawane pojedynczo; goście dzielą pokój do wyczerpania pojemności. Cena za noc za każde zajęte miejsce.
+- **WHOLE** (cały pokój) - wynajmowany w całości; jedna rezerwacja blokuje pokój w danym terminie. Cena stała za noc.
+- **SHARED** (dormitorium) - miejsca sprzedawane pojedynczo; goście dzielą pokój do wyczerpania pojemności. Cena za noc za każde zajęte miejsce.
 
 
 ## reservations
@@ -79,13 +79,13 @@ Tabela przechowuje rezerwacje użytkowników.
 ### Opcje wyżywienia:
 Gość przy rezerwacji wybiera jedną z opcji posiłków. Dopłata doliczana jest do ceny
 za każdego gościa i każdą noc pobytu. Wysokość dopłat **ustala właściciel (HOST)
-osobno dla każdego schroniska** przy jego tworzeniu (pola cennika w tabeli `shelters`) —
+osobno dla każdego schroniska** przy jego tworzeniu (pola cennika w tabeli `shelters`) -
 nie są to wartości stałe w systemie:
 
-- **Bez wyżywienia** — zawsze bez dopłaty,
-- **Śniadanie** — dopłata wg cennika schroniska,
-- **Śniadanie i kolacja** — dopłata wg cennika schroniska,
-- **Pełne wyżywienie** — dopłata wg cennika schroniska.
+- **Bez wyżywienia** - zawsze bez dopłaty,
+- **Śniadanie** - dopłata wg cennika schroniska,
+- **Śniadanie i kolacja** - dopłata wg cennika schroniska,
+- **Pełne wyżywienie** - dopłata wg cennika schroniska.
 
 
 ## reviews
@@ -116,14 +116,91 @@ W systemie zastosujemy:
 - role użytkowników,
 - zabezpieczenie endpointów backendowych.
 
+# Diagram encji
+
+Aktualny schemat bazy (relacje i ograniczenia - PK, FK, UNIQUE, CHECK):
+
+```mermaid
+erDiagram
+    users {
+        bigint id PK
+        varchar login UK "NOT NULL"
+        varchar email UK "NOT NULL"
+        varchar password_hash "NOT NULL, BCrypt"
+        varchar role "NOT NULL, CHECK: USER/HOST/ADMIN"
+        timestamptz created_at "NOT NULL"
+    }
+    shelters {
+        bigint id PK
+        bigint owner_id FK "→ users"
+        varchar name "NOT NULL"
+        varchar description "max 1200"
+        varchar location "NOT NULL"
+        varchar phone
+        varchar email
+        varchar image_url "max 1000"
+        float8 rating "NOT NULL, CHECK: 0..5"
+        numeric board_breakfast_price "NULL = opcja niedostępna"
+        numeric board_half_board_price
+        numeric board_full_board_price
+    }
+    rooms {
+        bigint id PK
+        bigint shelter_id FK "NOT NULL, → shelters"
+        varchar name "NOT NULL"
+        int capacity "NOT NULL, CHECK: > 0"
+        varchar room_type "CHECK: WHOLE/SHARED, NULL = WHOLE"
+        numeric price_per_night "NOT NULL, CHECK: >= 0"
+    }
+    reservations {
+        bigint id PK
+        bigint user_id FK "NOT NULL, → users"
+        bigint room_id FK "NOT NULL, → rooms"
+        date start_date "NOT NULL"
+        date end_date "NOT NULL, CHECK: > start_date"
+        int guest_count "NOT NULL, CHECK: > 0"
+        numeric total_price "NOT NULL, cena z chwili rezerwacji"
+        varchar status "NOT NULL, CHECK: PENDING/CONFIRMED/CANCELLED"
+        varchar board_type "NULL = bez wyżywienia"
+        varchar guest_name
+        timestamptz created_at "NOT NULL"
+    }
+    reviews {
+        bigint id PK
+        bigint user_id FK "NOT NULL, → users"
+        bigint shelter_id FK "NOT NULL, → shelters"
+        int rating "NOT NULL, CHECK: 1..5"
+        varchar comment "max 1000"
+        timestamptz created_at "NOT NULL"
+    }
+
+    users ||--o{ shelters : "posiada (HOST)"
+    shelters ||--o{ rooms : "zawiera"
+    users ||--o{ reservations : "składa"
+    rooms ||--o{ reservations : "jest rezerwowany"
+    users ||--o{ reviews : "wystawia"
+    shelters ||--o{ reviews : "otrzymuje"
+```
+
+Wersja graficzna (uproszczona, bez kolumn cennika wyżywienia i typu pokoju):
+
 ![diagram](obraz-1.png)
 
 
 # Skrypt inicjalizacyjny bazy
 
-Do projektu zostanie przygotowany skrypt SQL zawierający:
+Skrypt **`docs/bnabd_init.sql`** zawiera:
 - `DROP` istniejących tabel,
-- `CREATE` całej struktury wraz z ograniczeniami i kluczami obcymi,
-- `INSERT` z danymi przykładowymi (użytkownicy testowi z hasłami zahashowanymi BCrypt, schroniska, pokoje, przykładowe rezerwacje i opinie).
+- `CREATE` całej struktury wraz z ograniczeniami (PK, FK, UNIQUE, NOT NULL, CHECK).
 
-Administrator z panelu aplikacji będzie mógł uruchomić akcję resetu bazy, która wykona ten skrypt — skasuje starą strukturę i utworzy nową z danymi przykładowymi.
+Uruchomienie: `psql -U bnabd -d bnabd -f docs/bnabd_init.sql`
+(utworzenie samej bazy i użytkownika: `docs/setup-local-postgres.sql`).
+
+Skrypt ma charakter poglądowy - na co dzień schemat tworzy automatycznie Hibernate
+(`spring.jpa.hibernate.ddl-auto=update`), a dane przykładowe (użytkownicy testowi
+z hasłami zahashowanymi BCrypt, schroniska, pokoje, rezerwacje, opinie) sieje
+`DatabaseSeedService` przy starcie backendu, gdy tabela `users` jest pusta.
+
+Administrator z panelu aplikacji może uruchomić akcję resetu bazy
+(`POST /api/admin/db/reset`), która kasuje wszystkie dane w kolejności bezpiecznej
+dla kluczy obcych i ponownie sieje dane przykładowe (przez JPA, bez wykonywania skryptu SQL).

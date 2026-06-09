@@ -72,7 +72,7 @@ Parametry konfigurowane w `application.properties`:
 - `spring.datasource.url=jdbc:postgresql://<host>:5432/bnabd`
 - `spring.datasource.username`
 - `spring.datasource.password`
-- `spring.jpa.hibernate.ddl-auto=validate`
+- `spring.jpa.hibernate.ddl-auto=update` (Hibernate tworzy i aktualizuje schemat na podstawie encji)
 
 Hasła do bazy trzymane są w zmiennych środowiskowych (`DB_USER`, `DB_PASS`), nie w repo.
 
@@ -81,7 +81,7 @@ Hasła do bazy trzymane są w zmiennych środowiskowych (`DB_USER`, `DB_PASS`), 
 
 Hasła użytkowników są hashowane algorytmem **BCrypt** (`BCryptPasswordEncoder` ze Spring Security, koszt 10) przed zapisem do tabeli `users`. W bazie nigdy nie jest przechowywane hasło jawne. Weryfikacja przy logowaniu odbywa się przez `matches(raw, hash)`.
 
-JWT służy wyłącznie do autoryzacji sesji po zalogowaniu — to osobny mechanizm od kodowania hasła.
+JWT służy wyłącznie do autoryzacji sesji po zalogowaniu - to osobny mechanizm od kodowania hasła.
 
 
 # 8. Statystyki graficzne
