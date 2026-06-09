@@ -223,23 +223,30 @@ public class DatabaseSeedService implements CommandLineRunner {
         }
 
         // --- Reservations ---------------------------------------------------
-        // Each room gets a handful of non-overlapping stays spread across the 2026
-        // calendar year, so the monthly admin charts have real shape.
+        // Each room gets a handful of stays at random start dates across the 2026
+        // calendar year, rejecting overlaps, so the monthly admin charts stay
+        // roughly even instead of clustering at the start of the year.
         LocalDate today = LocalDate.now();
-        LocalDate seasonEnd = LocalDate.of(2026, 12, 31);
+        LocalDate yearStart = LocalDate.of(2026, 1, 1);
         for (Room room : rooms) {
-            LocalDate cursor = LocalDate.of(2026, 1, 1);
-            int target = 2 + rnd.nextInt(4); // 2..5 stays per room
+            int target = 4 + rnd.nextInt(5); // 4..8 stays per room
+            List<LocalDate[]> booked = new ArrayList<>();
             int made = 0;
-            while (made < target) {
-                cursor = cursor.plusDays(4 + rnd.nextInt(34)); // gap between stays
+            int attempts = 0;
+            while (made < target && attempts < target * 8) {
+                attempts++;
                 int nights = 1 + rnd.nextInt(5);
-                LocalDate start = cursor;
+                LocalDate start = yearStart.plusDays(rnd.nextInt(365));
                 LocalDate end = start.plusDays(nights);
-                cursor = end; // next stay starts no earlier than this one ends -> no overlap
-                if (start.isAfter(seasonEnd)) {
-                    break; // stop at the booking horizon
+
+                boolean overlaps = false;
+                for (LocalDate[] b : booked) {
+                    if (start.isBefore(b[1]) && b[0].isBefore(end)) { overlaps = true; break; }
                 }
+                if (overlaps) {
+                    continue;
+                }
+                booked.add(new LocalDate[] { start, end });
 
                 int capacity = room.getCapacity();
                 int partySize = room.getRoomType() == RoomType.SHARED
