@@ -65,12 +65,3 @@ Po inicjalizacji bazy dostępne są konta przykładowe:
 # 6. Reset bazy z poziomu aplikacji
 
 Przycisk "Reset bazy" w panelu admina wywołuje `POST /api/admin/db/reset` i odtwarza schemat oraz dane testowe.
-
-
-# 7. Wdrożenie na serwer aplikacyjny
-
-Aplikacja może być uruchomiona:
-- jako standalone JAR (wbudowany Tomcat - domyślnie),
-- jako WAR na zewnętrznym Tomcat 10+ (po przepakowaniu `pom.xml` na `packaging: war`).
-
-Frontend można zbudować statycznie (`next build && next export`) i serwować z dowolnego serwera HTTP (nginx, Apache).

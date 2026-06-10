@@ -2,13 +2,13 @@
 
 Webowy system zarządzania schroniskami turystycznymi i rezerwacją noclegów.
 
-- **Frontend** (`frontend/`) — Next.js, port **3000**.
-- **Backend** (`backend/`) — Spring Boot REST API + JWT, port **8080**.
-- **Baza danych** — PostgreSQL.
+- **Frontend** (`frontend/`) - Next.js, port **3000**.
+- **Backend** (`backend/`) - Spring Boot REST API + JWT, port **8080**.
+- **Baza danych** - PostgreSQL.
 
 Pełny opis projektu znajduje się w katalogu [`docs/`](docs/).
 
-## Szybki start (Docker — zalecane)
+## Szybki start (Docker)
 
 Uruchamia całość jedną komendą.
 Nie trzeba instalować Javy, Mavena, Node ani PostgreSQL. Wystarczy Docker.
