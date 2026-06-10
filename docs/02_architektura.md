@@ -76,4 +76,8 @@ Moduł admina prezentuje wykresy czasowe (biblioteka Recharts po stronie frontu)
 - obłożenie schronisk w skali roku,
 - przychód miesięczny.
 
-Dane agregowane są zapytaniami SQL po stronie backendu i zwracane jako JSON.
+Gospodarz (HOST) ma dostęp do analogicznych statystyk ograniczonych do własnych
+schronisk (liczba rezerwacji, rezerwacje oczekujące, przychód oraz wykresy
+miesięczne rezerwacji i przychodu).
+
+Dane agregowane są po stronie backendu i zwracane jako JSON.

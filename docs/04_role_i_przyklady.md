@@ -12,7 +12,9 @@ System posiada trzy główne role:
 
 Użytkownik standardowy może:
 - przeglądać schroniska,
+- sprawdzać dostępność pokoi w wybranym terminie,
 - tworzyć rezerwacje,
+- potwierdzać rezerwacje (płatność),
 - anulować rezerwacje,
 - dodawać opinie,
 - zarządzać profilem.
@@ -25,6 +27,9 @@ Właściciel schroniska (gospodarz) może:
 - edytować dane własnych schronisk (opis, kontakt, zdjęcie, cennik wyżywienia),
 - zarządzać pokojami w swoich schroniskach (dodawanie, edycja, usuwanie),
 - przeglądać rezerwacje złożone w swoich schroniskach,
+- anulować rezerwacje złożone w swoich schroniskach,
+- tworzyć rezerwacje w imieniu gościa (z podaniem nazwiska gościa),
+- przeglądać statystyki własnych schronisk (liczba rezerwacji, oczekujące, przychód, wykresy miesięczne),
 - zarządzać profilem.
 
 
@@ -32,7 +37,9 @@ Właściciel schroniska (gospodarz) może:
 
 Administrator może:
 - zarządzać użytkownikami,
+- zmieniać role użytkowników,
 - zarządzać schroniskami,
+- przypisywać schronisko do innego właściciela (HOST lub ADMIN),
 - zarządzać pokojami,
 - zarządzać rezerwacjami,
 - generować statystyki,
@@ -60,11 +67,30 @@ Administrator może:
 4. System prezentuje posortowaną listę.
 
 
+## Sprawdzanie dostępności pokoi
+1. Użytkownik wybiera schronisko i termin (data początku i końca).
+2. System dla każdego pokoju oblicza liczbę wolnych miejsc w tym terminie
+   (pokój WHOLE: zajęty lub wolny; pokój SHARED: pojemność minus zajęte miejsca).
+3. System prezentuje pokoje z informacją o dostępności.
+
+
 ## Rezerwacja pokoju
 1. Użytkownik wybiera schronisko.
 2. Wybiera pokój.
-3. Wybiera termin.
-4. System zapisuje rezerwację.
+3. Wybiera termin, liczbę gości i opcję wyżywienia.
+4. System zapisuje rezerwację ze statusem PENDING i ceną wyliczoną w chwili rezerwacji.
+
+
+## Potwierdzenie rezerwacji (płatność)
+1. Użytkownik wybiera rezerwację oczekującą (PENDING).
+2. Przechodzi przez krok płatności (placeholder - brak realnego obciążenia).
+3. System zmienia status rezerwacji na CONFIRMED.
+
+
+## Cykl życia rezerwacji
+- **PENDING** - rezerwacja utworzona, oczekuje na potwierdzenie (płatność).
+- **CONFIRMED** - rezerwacja potwierdzona po kroku płatności.
+- **CANCELLED** - rezerwacja anulowana przez użytkownika, gospodarza (we własnym schronisku) lub administratora.
 
 
 # 6. Przypadki użycia gospodarza (HOST)
@@ -111,10 +137,12 @@ graph LR
     U --> UC2[Logowanie]
     U --> UC3[Przeglądanie schronisk]
     U --> UC4[Wyszukiwanie, filtrowanie i sortowanie]
-    U --> UC5[Tworzenie rezerwacji]
-    U --> UC6[Anulowanie rezerwacji]
-    U --> UC7[Dodawanie opinii]
-    U --> UC8[Zarządzanie profilem]
+    U --> UC5[Sprawdzanie dostępności pokoi]
+    U --> UC6[Tworzenie rezerwacji]
+    U --> UC7[Potwierdzenie rezerwacji - płatność]
+    U --> UC8[Anulowanie rezerwacji]
+    U --> UC9[Dodawanie opinii]
+    U --> UC10[Zarządzanie profilem]
 ```
 
 
@@ -128,6 +156,9 @@ graph LR
     H --> HC3[Edycja własnych schronisk]
     H --> HC4[Zarządzanie pokojami]
     H --> HC5[Podgląd rezerwacji w swoich schroniskach]
+    H --> HC6[Anulowanie rezerwacji w swoich schroniskach]
+    H --> HC7[Rezerwacja w imieniu gościa]
+    H --> HC8[Statystyki własnych schronisk]
 ```
 
 
@@ -138,11 +169,13 @@ graph LR
     A((ADMIN))
     A --> AC1[Logowanie]
     A --> AC2[Zarządzanie użytkownikami]
-    A --> AC3[Zarządzanie schroniskami]
-    A --> AC4[Zarządzanie pokojami]
-    A --> AC5[Przegląd wszystkich rezerwacji]
-    A --> AC6[Statystyki graficzne]
-    A --> AC7[Reset bazy danych]
+    A --> AC3[Zmiana ról użytkowników]
+    A --> AC4[Zarządzanie schroniskami]
+    A --> AC5[Przypisanie schroniska do właściciela]
+    A --> AC6[Zarządzanie pokojami]
+    A --> AC7[Przegląd wszystkich rezerwacji]
+    A --> AC8[Statystyki graficzne]
+    A --> AC9[Reset bazy danych]
 ```
 
 
@@ -189,7 +222,25 @@ sequenceDiagram
 ```
 
 
-## 8.6. Diagram encji (ERD)
+## 8.6. Diagram sekwencji - potwierdzenie rezerwacji (płatność)
+
+```mermaid
+sequenceDiagram
+    actor U as USER
+    participant F as Frontend
+    participant B as Backend
+    participant DB as PostgreSQL
+    U->>F: potwierdzenie rezerwacji (płatność)
+    F->>B: POST /api/payments/confirm (JWT)
+    B->>B: weryfikacja JWT i właściciela rezerwacji
+    B->>DB: UPDATE reservation SET status = CONFIRMED
+    DB-->>B: OK
+    B-->>F: 200 OK
+    F-->>U: rezerwacja potwierdzona
+```
+
+
+## 8.7. Diagram encji (ERD)
 
 Aktualny diagram encji wraz z relacjami i ograniczeniami znajduje się
 w `docs/03_baza_danych.md` (diagram Mermaid); wersja graficzna w `docs/obraz-1.png`.

@@ -72,9 +72,9 @@ Tabela przechowuje rezerwacje użytkowników.
 - cenę (w momencie stworzenia rezerwacji).
 
 ### Statusy:
-- PENDING,
-- CONFIRMED,
-- CANCELLED.
+- PENDING - rezerwacja utworzona, oczekuje na potwierdzenie (płatność),
+- CONFIRMED - rezerwacja potwierdzona po kroku płatności,
+- CANCELLED - rezerwacja anulowana (przez użytkownika, gospodarza we własnym schronisku lub administratora).
 
 ### Opcje wyżywienia:
 Gość przy rezerwacji wybiera jedną z opcji posiłków. Dopłata doliczana jest do ceny
