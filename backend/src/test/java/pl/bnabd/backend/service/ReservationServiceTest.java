@@ -48,7 +48,7 @@ class ReservationServiceTest {
     private final Shelter shelter = shelter(10, host);
     private final Room room = room(100, shelter, 4, "100.00");
 
-    // --- create: the core booking workflow ---
+    // create: the core booking workflow
 
     // find room -> dates free -> create reservation (PENDING, price captured at booking)
     @Test
@@ -105,7 +105,7 @@ class ReservationServiceTest {
         verify(reservationRepository, never()).save(any());
     }
 
-    // --- shared (dormitory) rooms ---
+    // shared (dormitory) rooms
 
     // shared room -> price scales with guest count, partial booking allowed within capacity
     @Test
@@ -140,7 +140,7 @@ class ReservationServiceTest {
         verify(reservationRepository, never()).save(any());
     }
 
-    // --- cancel ---
+    // cancel
 
     // guest -> cancel own reservation -> CANCELLED
     @Test

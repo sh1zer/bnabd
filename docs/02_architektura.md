@@ -2,7 +2,7 @@
 
 ## 1. Architektura aplikacji
 
-System zostanie wykonany w trzech warstwach:
+System jest zbudowany w trzech warstwach:
 
 1. Warstwa prezentacji (Frontend)
 2. Warstwa logiki biznesowej (Backend)
@@ -11,7 +11,7 @@ System zostanie wykonany w trzech warstwach:
 
 # 2. Frontend
 
-Frontend zostanie wykonany w technologii Next.js.
+Frontend jest zbudowany w technologii Next.js (stack: zob. `01_zalozenia.md`).
 
 ## Odpowiedzialność frontendu
 - prezentacja danych,
@@ -21,16 +21,9 @@ Frontend zostanie wykonany w technologii Next.js.
 - wyświetlanie statystyk.
 
 
-## Technologie frontendowe
-- Next.js
-- React
-- TypeScript
-- TailwindCSS
-
-
 # 3. Backend
 
-Backend zostanie wykonany w Spring Boot jako REST API.
+Backend jest zbudowany w Spring Boot jako REST API (stack: zob. `01_zalozenia.md`).
 
 ## Odpowiedzialność backendu
 - logika biznesowa,
@@ -40,17 +33,9 @@ Backend zostanie wykonany w Spring Boot jako REST API.
 - obsługa bezpieczeństwa.
 
 
-## Technologie backendowe
-- Spring Boot
-- Spring Security
-- JWT Authentication
-- Hibernate / JPA
-- Maven
-
-
 # 4. Baza danych
 
-System będzie korzystał z relacyjnej bazy danych PostgreSQL.
+System korzysta z relacyjnej bazy danych PostgreSQL.
 
 ## Zadania bazy danych
 - przechowywanie danych użytkowników,
@@ -81,7 +66,7 @@ Hasła do bazy trzymane są w zmiennych środowiskowych (`DB_USER`, `DB_PASS`), 
 
 Hasła użytkowników są hashowane algorytmem **BCrypt** (`BCryptPasswordEncoder` ze Spring Security, koszt 10) przed zapisem do tabeli `users`. W bazie nigdy nie jest przechowywane hasło jawne. Weryfikacja przy logowaniu odbywa się przez `matches(raw, hash)`.
 
-JWT służy wyłącznie do autoryzacji sesji po zalogowaniu - to osobny mechanizm od kodowania hasła.
+JWT służy wyłącznie do autoryzacji sesji po zalogowaniu.
 
 
 # 8. Statystyki graficzne

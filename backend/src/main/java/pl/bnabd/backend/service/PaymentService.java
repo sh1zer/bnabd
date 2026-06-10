@@ -9,11 +9,6 @@ import pl.bnabd.backend.model.ReservationStatus;
 import pl.bnabd.backend.model.UserRole;
 import pl.bnabd.backend.repository.ReservationRepository;
 
-/**
- * Placeholder payment flow — no real payment provider is integrated.
- * Confirming simply flips the reservation from PENDING to CONFIRMED,
- * which is enough to demonstrate the booking workflow.
- */
 @Service
 public class PaymentService {
 

@@ -184,8 +184,6 @@ erDiagram
 
 Wersja graficzna (uproszczona, bez kolumn cennika wyżywienia i typu pokoju):
 
-![diagram](obraz-1.png)
-
 
 # Skrypt inicjalizacyjny bazy
 
@@ -196,11 +194,11 @@ Skrypt **`docs/bnabd_init.sql`** zawiera:
 Uruchomienie: `psql -U bnabd -d bnabd -f docs/bnabd_init.sql`
 (utworzenie samej bazy i użytkownika: `docs/setup-local-postgres.sql`).
 
-Skrypt ma charakter poglądowy - na co dzień schemat tworzy automatycznie Hibernate
-(`spring.jpa.hibernate.ddl-auto=update`), a dane przykładowe (użytkownicy testowi
-z hasłami zahashowanymi BCrypt, schroniska, pokoje, rezerwacje, opinie) sieje
-`DatabaseSeedService` przy starcie backendu, gdy tabela `users` jest pusta.
+Skrypt nie jest wykonywany przez aplikację,
+schemat generuje Hibernate (`spring.jpa.hibernate.ddl-auto=update`), a dane
+przykładowe (użytkownicy testowi z hasłami zahashowanymi BCrypt, schroniska,
+pokoje, rezerwacje, opinie) wstawia `DatabaseSeedService` przy starcie backendu.
 
-Administrator z panelu aplikacji może uruchomić akcję resetu bazy
-(`POST /api/admin/db/reset`), która kasuje wszystkie dane w kolejności bezpiecznej
+Administrator z panelu aplikacji może resetować bazę
+(`POST /api/admin/db/reset`), to kasuje wszystkie dane w kolejności bezpiecznej
 dla kluczy obcych i ponownie sieje dane przykładowe (przez JPA, bez wykonywania skryptu SQL).

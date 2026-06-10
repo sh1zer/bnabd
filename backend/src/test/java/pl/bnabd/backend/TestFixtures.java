@@ -11,10 +11,6 @@ import pl.bnabd.backend.model.RoomType;
 import pl.bnabd.backend.model.Shelter;
 import pl.bnabd.backend.model.UserRole;
 
-/**
- * Builders for fully-wired domain objects with ids set (the entities have no id setter, so tests
- * assign it reflectively). Used by the service-layer unit tests.
- */
 public final class TestFixtures {
 
     private TestFixtures() {

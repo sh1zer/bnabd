@@ -1,6 +1,6 @@
 -- bnabd - struktura bazy danych (PostgreSQL).
--- Skrypt pokazowy: w praktyce schemat tworzy Hibernate (ddl-auto=update),
--- a dane przykladowe sieje DatabaseSeedService przy starcie backendu.
+-- Skrypt referencyjny, niewykonywany przez aplikacje: schemat generuje Hibernate
+-- (ddl-auto=update), a dane przykladowe wstawia DatabaseSeedService przy starcie backendu.
 -- Uruchomienie reczne: psql -U bnabd -d bnabd -f docs/bnabd_init.sql
 
 DROP TABLE IF EXISTS reviews       CASCADE;

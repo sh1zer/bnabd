@@ -40,8 +40,6 @@ public class Shelter {
 
     private double rating;
 
-    // Meal surcharges set by the host, charged per guest per night.
-    // null means the shelter does not offer that board option (treated as 0).
     private BigDecimal boardBreakfastPrice;
     private BigDecimal boardHalfBoardPrice;
     private BigDecimal boardFullBoardPrice;

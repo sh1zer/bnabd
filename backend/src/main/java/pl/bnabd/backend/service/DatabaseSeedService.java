@@ -87,9 +87,6 @@ public class DatabaseSeedService implements CommandLineRunner {
 
     @Transactional
     public void reset() {
-        // Bulk-delete in FK-safe order. deleteAllInBatch() issues the DELETEs immediately,
-        // so Hibernate cannot reorder seed()'s fresh INSERTs ahead of them within this
-        // transaction (which otherwise caused a duplicate-key violation on users.email/login).
         reviewRepository.deleteAllInBatch();
         reservationRepository.deleteAllInBatch();
         roomRepository.deleteAllInBatch();
@@ -108,8 +105,7 @@ public class DatabaseSeedService implements CommandLineRunner {
     private void seed() {
         Random rnd = new Random(SEED);
 
-        // --- Accounts -------------------------------------------------------
-        // Original demo accounts keep their documented credentials.
+        // Accounts
         AppUser admin = user("admin", "admin@schroniskohub.pl", "admin123", UserRole.ADMIN, 540);
         AppUser host = user("host", "host@schroniskohub.pl", "host123", UserRole.HOST, 520);
         AppUser user = user("user", "user@schroniskohub.pl", "user123", UserRole.USER, 500);
@@ -136,7 +132,7 @@ public class DatabaseSeedService implements CommandLineRunner {
         guests.add(user("michal.pawlak", "michal.pawlak@example.com", "haslo123", UserRole.USER, 140));
         guests.add(user("karolina.gorska", "karolina.gorska@example.com", "haslo123", UserRole.USER, 90));
 
-        // --- Shelters + rooms ----------------------------------------------
+        // Shelters + rooms
         List<Room> rooms = new ArrayList<>();
         List<Shelter> shelters = new ArrayList<>();
 
@@ -212,9 +208,7 @@ public class DatabaseSeedService implements CommandLineRunner {
         rooms.add(room(jodla, "Sala wspólna", 8, RoomType.SHARED, "47"));
         shelters.add(jodla);
 
-        // --- Meal pricing ---------------------------------------------------
-        // Each host sets their own meal surcharges (per guest, per night), so vary
-        // them across shelters to show the pricing is configurable, not fixed.
+        // Meal pricing
         for (Shelter shelter : shelters) {
             shelter.setBoardBreakfastPrice(new BigDecimal(15 + rnd.nextInt(16)));  // 15..30
             shelter.setBoardHalfBoardPrice(new BigDecimal(35 + rnd.nextInt(21)));  // 35..55
@@ -222,10 +216,7 @@ public class DatabaseSeedService implements CommandLineRunner {
             shelterRepository.save(shelter);
         }
 
-        // --- Reservations ---------------------------------------------------
-        // Each room gets a handful of stays at random start dates across the 2026
-        // calendar year, rejecting overlaps, so the monthly admin charts stay
-        // roughly even instead of clustering at the start of the year.
+        // Reservations
         LocalDate today = LocalDate.now();
         LocalDate yearStart = LocalDate.of(2026, 1, 1);
         for (Room room : rooms) {
@@ -277,9 +268,7 @@ public class DatabaseSeedService implements CommandLineRunner {
             }
         }
 
-        // --- Reviews --------------------------------------------------------
-        // 2..5 reviews per shelter from distinct guests; the shelter's stored
-        // rating is set to the average of its reviews so the cards stay honest.
+        // Reviews
         for (Shelter shelter : shelters) {
             int count = 2 + rnd.nextInt(4);
             Set<AppUser> reviewers = new LinkedHashSet<>();

@@ -16,10 +16,6 @@ public class CurrentUserProvider {
         this.userRepository = userRepository;
     }
 
-    /**
-     * Resolves the {@link AppUser} behind the current request. The JWT filter stores the user's
-     * login as the authentication principal, so we look the account back up here.
-     */
     public AppUser require() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof String login)) {

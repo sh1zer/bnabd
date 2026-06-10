@@ -62,8 +62,6 @@ public class AdminService {
         }
         AppUser user = userRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Nie znaleziono uzytkownika o id " + id + "."));
-        // Remove the user's own activity, but keep their shelters (and the bookings of other
-        // guests in them) alive by detaching ownership.
         reviewRepository.deleteByUserId(id);
         reservationRepository.deleteByUserId(id);
         for (Shelter shelter : shelterRepository.findByOwnerId(id)) {

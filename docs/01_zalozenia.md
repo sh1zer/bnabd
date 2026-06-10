@@ -17,14 +17,12 @@ Projekt realizowany jest jako aplikacja webowa w architekturze klient-serwer.
 
 # 2. Cel projektu
 
-Celem projektu jest stworzenie nowoczesnej aplikacji bazodanowej umożliwiającej:
-- bezpieczne logowanie użytkowników,
+Celem projektu jest implementacja aplikacji bazodanowej realizującej:
+- uwierzytelnianie użytkowników (BCrypt + JWT),
 - zarządzanie danymi schronisk,
-- wykonywanie operacji CRUD,
+- operacje CRUD na encjach domenowych,
 - zarządzanie rezerwacjami,
-- prezentację danych statystycznych.
-
-Projekt ma odwzorowywać rzeczywisty system rezerwacji schronisk turystycznych.
+- agregację i prezentację danych statystycznych.
 
 
 # 3. Zakres funkcjonalny
